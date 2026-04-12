@@ -1,0 +1,1 @@
+<template><div class="p-20"><h1>Halaman sedang dibangun</h1></div></template>

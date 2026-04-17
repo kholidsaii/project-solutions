@@ -55,4 +55,4 @@ const chartOptions = computed<ApexOptions>(() => {
       :series="seriesData" 
     />
   </div>
-</template>
+</template> 

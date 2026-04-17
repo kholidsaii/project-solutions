@@ -1,34 +1,34 @@
-@import "tailwindcss";
+  @import "tailwindcss";
 
-@layer base {
-  :root {
-    --brand-color: #4f46e5; 
+  @layer base {
+    :root {
+      --brand-color: #4f46e5; 
+    }
+
+    html, body {
+      /* Gunakan standard CSS atau pastikan @apply terdeteksi */
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      @apply bg-slate-50;
+    }
   }
 
-  html, body {
-    /* Gunakan standard CSS atau pastikan @apply terdeteksi */
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    @apply bg-slate-50;
+  @layer utilities {
+    /* Utility custom menggunakan variabel brand */
+    .bg-brand { background-color: var(--brand-color) !important; }
+    .text-brand { color: var(--brand-color) !important; }
+    .border-brand { border-color: var(--brand-color) !important; }
+    .ring-brand { --tw-ring-color: var(--brand-color) !important; }
   }
-}
-
-@layer utilities {
-  /* Utility custom menggunakan variabel brand */
-  .bg-brand { background-color: var(--brand-color) !important; }
-  .text-brand { color: var(--brand-color) !important; }
-  .border-brand { border-color: var(--brand-color) !important; }
-  .ring-brand { --tw-ring-color: var(--brand-color) !important; }
-}
 
 
-@layer components {
-  .nav-btn-mini {
-    @apply w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-50 transition-all text-sm;
+  @layer components {
+    .nav-btn-mini {
+      @apply w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-50 transition-all text-sm;
+    }
+    .search-input {
+      @apply pl-10 pr-6 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold w-64 focus:ring-2 focus:ring-blue-100 outline-none transition-all;
+    }
+    /* Masukkan class lainnya dari Dashboard.vue ke sini */
   }
-  .search-input {
-    @apply pl-10 pr-6 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold w-64 focus:ring-2 focus:ring-blue-100 outline-none transition-all;
-  }
-  /* Masukkan class lainnya dari Dashboard.vue ke sini */
-}

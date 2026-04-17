@@ -34,7 +34,7 @@ class AssessmentController extends Controller
         $question = \App\Models\Question::find($request->question_id);
 
         AuditLog::create([
-            'user_name' => Auth::user()->name ?? 'System',
+            'user_id' => Auth::user()->name ?? 'System',
             'action' => 'SAVE_SCORE',
             'description' => "Update skor RS " . ($hospital->name ?? 'Unknown') . " pada indikator ID: " . $question->id . " menjadi " . $request->score,
             'ip_address' => $request->ip()

@@ -1,21 +1,36 @@
-script: |
-            # 1. Masuk ke folder project
+name: Auto Deploy to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
             cd /www/wwwroot/kerjapro.com/project-solutions/
-            
-            # 2. Tarik kodingan terbaru dari GitHub
             git pull origin main
             
-            # 3. Masuk ke folder frontend untuk "Masak" (Build)
+            # Masak Frontend
             cd frontend
             npm install
             npm run build
             
-            # 4. Copy hasil masak (dist) ke folder public Backend
-            # Kita hapus dulu isi folder public/dist lama agar bersih
+            # Bersihkan public lama dan copy yang baru
             rm -rf ../backend/public/assets
             cp -r dist/* ../backend/public/
             
-            # 5. Beresin Backend (Update library & Cache)
+            # Beresin Backend
             cd ../backend
             composer install --no-dev
             php artisan migrate --force

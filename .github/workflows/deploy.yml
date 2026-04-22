@@ -25,7 +25,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
+            script: |
             set -e
+            
+            # 1. PAKSA LOAD PATH (Tambahkan ini agar npm ditemukan)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin # Tambahan standar path
+            
+            # Cek versi buat mastiin udah kebaca
+            node -v
+            npm -v
             cd /www/wwwroot/kerjapro.com/project-solutions/
             
             echo "--- STARTING DEPLOYMENT ---"

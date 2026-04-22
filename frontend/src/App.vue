@@ -1,8 +1,11 @@
 <template>
-  <div id="app-layout">
+  <div id="app-layout" class="w-full overflow-x-hidden">
     <Navigation v-if="$route.name !== 'Login'" />
     
-    <div :class="{ 'main-content': $route.name !== 'Login' }">
+    <div :class="[
+      $route.name !== 'Login' ? 'main-content' : '',
+      'w-full min-h-screen'
+    ]">
       <router-view></router-view>
     </div>
   </div>
@@ -10,63 +13,44 @@
 
 <script setup>
 import Navigation from './components/Navigation.vue';
-import { onMounted } from 'vue';
-
-onMounted(() => {
-  const savedHex = localStorage.getItem('theme_color_hex') || '#4f46e5';
-  document.documentElement.style.setProperty('--brand-color', savedHex);
-});
 </script>
 
 <style>
-body {
+/* Reset dasar agar tidak ada scroll liar */
+html, body {
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+  width: 100%;
+  overflow-x: hidden;
 }
 
-#app-layout { 
-  display: flex; 
-  min-height: 100vh;
+#app-layout {
+  display: flex;
+  flex-direction: row; /* Default sampingan untuk desktop */
+  width: 100%;
 }
 
 .main-content { 
-  margin-left: 80px; 
-  background-color: #f0f2f5; /* Warna dasar di gambar */
-  min-height: 100vh;
-  padding: 0; /* Kita buat padding di dalam view saja agar banner bisa full width */
+  flex: 1;
+  width: 100%;
+  margin-left: 80px; /* Sidebar desktop */
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
 }
-/* Responsif: Untuk Tablet & HP */
+
+/* RESPONSIF HP */
 @media (max-width: 768px) {
-  .main-content {
-    margin-left: 0; /* Sidebar biasanya disembunyikan atau jadi mode mobile */
-    padding: 16px;
+  #app-layout {
+    flex-direction: column; /* Di HP urutannya atas-bawah */
   }
-}
-.main-content { 
-  margin-left: 80px; /* Default Desktop */
-  flex: 1; 
-  min-height: 100vh;
-  padding: 24px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
-/* TABLET & MOBILE */
-@media (max-width: 1024px) {
   .main-content {
-    margin-left: 0; /* Konten penuh di mobile */
-    padding: 16px;
-    padding-top: 80px; /* Ruang untuk Header Mobile jika ada */
-  }
-  
-  /* Sembunyikan sidebar di mobile atau pindah ke bawah */
-  nav.fixed {
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-  }
-  
-  nav.fixed.show-mobile {
-    transform: translateX(0);
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    /* Hilangkan semua paksaan lebar agar dia mengikuti layar HP */
   }
 }
 </style>

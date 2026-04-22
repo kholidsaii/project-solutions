@@ -1,0 +1,22 @@
+script: |
+            # 1. Masuk ke folder project
+            cd /www/wwwroot/kerjapro.com/project-solutions/
+            
+            # 2. Tarik kodingan terbaru dari GitHub
+            git pull origin main
+            
+            # 3. Masuk ke folder frontend untuk "Masak" (Build)
+            cd frontend
+            npm install
+            npm run build
+            
+            # 4. Copy hasil masak (dist) ke folder public Backend
+            # Kita hapus dulu isi folder public/dist lama agar bersih
+            rm -rf ../backend/public/assets
+            cp -r dist/* ../backend/public/
+            
+            # 5. Beresin Backend (Update library & Cache)
+            cd ../backend
+            composer install --no-dev
+            php artisan migrate --force
+            php artisan optimize:clear

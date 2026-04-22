@@ -3,8 +3,11 @@ name: Auto Deploy to VPS
 on:
   push:
     branches: [ "main" ]
+
 env:
+  # Supaya warning Node 20 hilang total
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -18,21 +21,40 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Menambahkan timeout agar tidak putus di tengah jalan saat npm install
+          command_timeout: 30m
           script: |
             cd /www/wwwroot/kerjapro.com/project-solutions/
-            git pull origin main
             
-            # Masak Frontend
+            # 1. Tarik kode terbaru
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # 2. Masak Frontend (Vite)
             cd frontend
             npm install
+            # Hapus dist lama agar build benar-benar fresh
+            rm -rf dist
             npm run build
             
-            # Bersihkan public lama dan copy yang baru
+            # 3. Sinkronisasi Aset ke Public Backend
+            # Kita hapus aset lama di backend agar tidak bentrok dengan hash baru dari Vite
             rm -rf ../backend/public/assets
+            # Copy semua isi dist ke public backend
             cp -r dist/* ../backend/public/
             
-            # Beresin Backend
+            # 4. Beresin Backend (Laravel)
             cd ../backend
-            composer install --no-dev
+            # Pastikan folder permissions aman (sesuaikan dengan user web server kamu)
+            chmod -R 775 storage bootstrap/cache
+            
+            composer install --no-dev --optimize-autoloader
             php artisan migrate --force
+            
+            # Optimasi Laravel
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
             php artisan optimize:clear
+            
+            echo "🚀 Project Solutions Berhasil di-Deploy!"

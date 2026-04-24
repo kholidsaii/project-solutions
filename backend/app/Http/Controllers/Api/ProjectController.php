@@ -8,17 +8,44 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
-    public function index()
-    {
-        try {
-            $projects = DB::table('projects')
-                ->orderBy('created_at', 'desc')
-                ->get();
-            return response()->json($projects, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+   public function index()
+{
+    try {
+        $projects = DB::table('projects')
+            ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
+            ->select(
+                'projects.*', 
+                'work_categories.name as category',
+                // DI POSTGRES CUKUP PAKAI PENGURANGAN LANGSUNG
+                DB::raw("(finish_date - start_date) as total_day") 
+            )
+            ->orderBy('projects.created_at', 'desc')
+            ->get();
+
+        // Mapping data tetap sama seperti sebelumnya
+        $formatted = $projects->map(function($p) {
+            return [
+                'id' => $p->id,
+                'project_title' => $p->project_title,
+                'client_name' => $p->client_name,
+                'start_date' => $p->start_date ? \Carbon\Carbon::parse($p->start_date)->format('d F Y') : '-',
+                'finish_date' => $p->finish_date ? \Carbon\Carbon::parse($p->finish_date)->format('d F Y') : '-',
+                'total_day' => ($p->total_day ?? 0) . ' Day',
+                'category' => $p->category,
+                'status' => $p->status,
+                'priority' => $p->priority,
+                'package' => $p->package ?? '-',
+                'logo' => $p->logo,
+                'progress' => $p->progress_percent,
+                'color' => $p->status == 'Finish' ? 'bg-emerald-500' : 'bg-blue-600'
+            ];
+        });
+
+        return response()->json($formatted, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function store(Request $request)
     {
@@ -187,5 +214,36 @@ class ProjectController extends Controller
     } catch (\Exception $e) {
         return response()->json(['error' => $e->getMessage()], 500);
     }
+}
+// Tambahkan di ProjectController.php
+
+public function getMasterData()
+{
+    return response()->json([
+        'categories' => DB::table('work_categories')->get(),
+        'statuses'   => DB::table('work_statuses')->get(),
+        'priorities' => DB::table('work_priorities')->get(),
+        'packages'   => DB::table('work_packages')->get(),
+    ]);
+}
+
+public function storeMaster(Request $request, $type)
+{
+    $table = match($type) {
+        'categories' => 'work_categories',
+        'status'     => 'work_statuses',
+        'priority'   => 'work_priorities',
+        'package'    => 'work_packages',
+        default      => null
+    };
+
+    if (!$table) return response()->json(['message' => 'Invalid type'], 400);
+
+    DB::table($table)->insert([
+        'name' => $request->name,
+        'created_at' => now()
+    ]);
+
+    return response()->json(['message' => 'Data saved successfully']);
 }
 }

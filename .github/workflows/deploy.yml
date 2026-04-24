@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
 
-# Flag ini tetap perlu sampai GitHub benar-benar mematikan Node 20 di Sept 2026
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -12,12 +11,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # Update ke v4 (terbaru) - pastikan tetap pakai @v4
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        # Update appleboy ke v1.2.0 (versi terbaru yang sudah support Node 24)
         uses: appleboy/ssh-action@v1.2.0 
         with:
           host: ${{ secrets.HOST }}
@@ -25,48 +22,47 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
-            script: |
             set -e
             
-            # 1. PAKSA LOAD PATH (Tambahkan ini agar npm ditemukan)
+            # 1. LOAD ENVIRONMENT (NVM & PATH)
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin # Tambahan standar path
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
             
-            # Cek versi buat mastiin udah kebaca
-            node -v
-            npm -v
             cd /www/wwwroot/kerjapro.com/project-solutions/
             
             echo "--- STARTING DEPLOYMENT ---"
             
-            # Reset & Pull
+            # 2. GIT UPDATE
             git fetch origin main
             git reset --hard origin/main
             
-            # Frontend
+            # 3. FRONTEND BUILD
             cd frontend
             npm install
-            rm -rf dist
             npm run build
             
-            # Sync Assets & Hapus index.php bawaan Laravel
+            # 4. SYNC TO LARAVEL PUBLIC (BAGIAN PALING PENTING)
+            # Hapus assets lama agar tidak menumpuk file chunk lama
             rm -rf ../backend/public/assets
-            rm -f ../backend/public/index.php
+            
+            # Pindahkan isi dist/assets ke backend/public/assets
+            # Pindahkan file lainnya (index.html, vite.svg, dll) ke backend/public/
             cp -r dist/* ../backend/public/
             
-            # Backend
+            # 5. BACKEND SETUP
             cd ../backend
-            chmod -R 775 storage bootstrap/cache
-            composer install --no-dev --optimize-autoloader
-            php artisan migrate --force
             
-            # Fix Postgres Cache/Session
-            php artisan cache:table || true
-            php artisan session:table || true
+            # Pastikan folder ada & permission benar
+            mkdir -p storage/framework/{sessions,views,cache}
+            chmod -R 775 storage bootstrap/cache
+            
+            composer install --no-dev --optimize-autoloader
+            
+            # Migration (Hanya sekali, tidak perlu double)
             php artisan migrate --force
 
-            # Optimize
+            # Optimize Laravel
             php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache

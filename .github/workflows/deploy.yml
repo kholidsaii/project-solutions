@@ -1,33 +1,20 @@
-name: Auto Deploy to VPS
-
-on:
-  push:
-    branches: [ "main" ]
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0 
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 30m
-          script: |
+script: |
             set -e
             
-            # 1. LOAD ENVIRONMENT (NVM & PATH)
+            # 1. LOAD NVM SECARA MANUAL & FORCE
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+                . "$NVM_DIR/nvm.sh"
+                # Pakai versi node default yang terpasang di nvm
+                nvm use --delete-prefix default || nvm use node
+            fi
+
+            # Backup: Tambahkan path bin nvm ke PATH secara manual jika nvm.sh gagal
+            export PATH="$NVM_DIR/versions/node/$(nvm current 2>/dev/null || echo "default")/bin:$PATH:/usr/local/bin:/usr/bin:/bin"
+            
+            # Debugging: Biar kita tahu npm ada di mana
+            which node || echo "Node not found"
+            which npm || echo "NPM not found"
             
             cd /www/wwwroot/kerjapro.com/project-solutions/
             
@@ -39,33 +26,22 @@ jobs:
             
             # 3. FRONTEND BUILD
             cd frontend
+            # Gunakan jalur lengkap jika npm masih command not found
             npm install
             npm run build
             
-            # 4. SYNC TO LARAVEL PUBLIC (BAGIAN PALING PENTING)
-            # Hapus assets lama agar tidak menumpuk file chunk lama
+            # 4. SYNC TO LARAVEL PUBLIC
             rm -rf ../backend/public/assets
-            
-            # Pindahkan isi dist/assets ke backend/public/assets
-            # Pindahkan file lainnya (index.html, vite.svg, dll) ke backend/public/
             cp -r dist/* ../backend/public/
             
             # 5. BACKEND SETUP
             cd ../backend
-            
-            # Pastikan folder ada & permission benar
             mkdir -p storage/framework/{sessions,views,cache}
             chmod -R 775 storage bootstrap/cache
             
+            # Pastikan composer juga terbaca
             composer install --no-dev --optimize-autoloader
-            
-            # Migration (Hanya sekali, tidak perlu double)
             php artisan migrate --force
-
-            # Optimize Laravel
             php artisan optimize:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
             
             echo "🚀 Project Solutions Berhasil di-Deploy!"

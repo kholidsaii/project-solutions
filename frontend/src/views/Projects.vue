@@ -1,359 +1,424 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router'; // Tambahkan ini
-import api from '../api/axios';
-import Works from '../components/Works.vue';
+import { ref, onMounted, watch, computed } from 'vue'; // Import sudah lengkap
+import api from '../api/axios'; 
+import WorksChart from '../components/Works.vue';
 
-const route = useRoute();
+// --- 1. STATE MANAGEMENT ---
 const currentTab = ref('overview');
+const setupTab = ref('categories');
 const isLoading = ref(true);
-const isSaving = ref(false);
-const showProjectModal = ref(false);
 
-// State Data Dinamis
-const categories = ref<any[]>([]);
-const selectedCategoryId = ref<number | null>(null);
-const workData = ref<any[]>([]);
-
-// Form State
-const newCategory = ref({ name: '', icon: 'fas fa-file-alt' });
-const newProject = ref({
-  category_id: null,
-  client_name: '',
-  project_title: '',
-  contract_value: 0,
-  deadline: '',
-  description: ''
-});
-
-// Interface untuk Stats
-interface StatItem {
-  label: string;
-  value: string;
-  color: string;
-  shadow: string;
-  key: 'total' | 'finish' | 'progress' | 'planing' | 'pending';
-}
-
-const stats = ref<StatItem[]>([
-  { label: 'Total', value: '0', color: 'bg-indigo-600', shadow: 'shadow-indigo-200', key: 'total' },
-  { label: 'Finish', value: '0', color: 'bg-cyan-400', shadow: 'shadow-cyan-100', key: 'finish' },
-  { label: 'Open', value: '0', color: 'bg-green-500', shadow: 'shadow-green-100', key: 'progress' },
-  { label: 'Planing', value: '0', color: 'bg-amber-400', shadow: 'shadow-amber-100', key: 'planing' },
-  { label: 'Pending', value: '0', color: 'bg-rose-500', shadow: 'shadow-rose-100', key: 'pending' },
+// Data Master & UI
+const stats = ref([
+  { label: 'Total', value: '0', color: 'bg-[#6366F1]', key: 'total' },
+  { label: 'Finish', value: '0', color: 'bg-[#22D3EE]', key: 'finish' },
+  { label: 'Progress', value: '0', color: 'bg-[#10B981]', key: 'progress' },
+  { label: 'Planing', value: '0', color: 'bg-[#FBBF24]', key: 'planing' },
+  { label: 'Pending', value: '0', color: 'bg-[#EF4444]', key: 'pending' },
 ]);
 
-const barSeries = ref<any[]>([]);
+const workData = ref<any[]>([]);
+const barSeries = ref([{ name: 'Works Status', data: [] as number[] }]);
+const donutSeries = ref([0, 0, 0, 0]);
 
-// --- LOGIKA API ---
+// Data Master untuk Setup
+const allMasterData = ref({
+  categories: [] as any[],
+  status: [] as any[],
+  priority: [] as any[],
+  package: [] as any[]
+});
 
-const fetchCategories = async () => {
+// FORM STATES
+const setupForm = ref({ name: '', icon: 'fas fa-folder' });
+
+// --- 2. COMPUTED (Yang tadi bikin error) ---
+const filteredMasterData = computed(() => {
+  // Mengambil data sesuai tab setup yang aktif
+  const key = setupTab.value as keyof typeof allMasterData.value;
+  return allMasterData.value[key] || [];
+});
+
+// --- 3. API ACTIONS ---
+
+const fetchMasterData = async () => {
   try {
-    const res = await api.get('/work-categories');
-    categories.value = res.data;
-    
-    // LOGIKA DEEP LINK: Cek jika ada kategori di URL (?cat=...)
-    const catFromUrl = route.query.cat;
-    if (catFromUrl) {
-      selectCategory(Number(catFromUrl));
-    } else if (categories.value.length > 0) {
-      selectCategory(categories.value[0].id);
-    }
-  } catch (e) { console.error("Gagal load kategori", e); }
-};
-
-const selectCategory = async (id: number) => {
-  selectedCategoryId.value = id;
-  currentTab.value = 'data';
-  isLoading.value = true;
-  try {
-    const res = await api.get(`/projects/category/${id}`);
-    workData.value = res.data.map((item: any) => ({ ...item, tasks: item.tasks || [] }));
-    
-    // LOGIKA SCROLL: Jika ada ID project di URL (/projects/7)
-    const projectIdFromUrl = route.params.id;
-    if (projectIdFromUrl) {
-      setTimeout(() => {
-        const element = document.getElementById(`project-${projectIdFromUrl}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-4');
-          setTimeout(() => element.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-4'), 3000);
-        }
-      }, 500);
-    }
-  } catch (e) { workData.value = []; } finally { isLoading.value = false; }
-};
-
-const handleAddCategory = async () => {
-  if (!newCategory.value.name) return;
-  isSaving.value = true;
-  try {
-    await api.post('/work-categories', newCategory.value);
-    newCategory.value = { name: '', icon: 'fas fa-file-alt' };
-    await fetchCategories();
-  } finally { isSaving.value = false; }
-};
-
-// INPUT PROJECT BARU
-const handleSaveProject = async () => {
-  if (!newProject.value.project_title || !selectedCategoryId.value) {
-    alert("Lengkapi data project!");
-    return;
-  }
-  isSaving.value = true;
-  try {
-    // Memastikan category_id terisi sesuai sidebar yang aktif jika belum dipilih
-    newProject.value.category_id = selectedCategoryId.value as any;
-    
-    await api.post('/projects', newProject.value);
-    alert('Project Berhasil Disimpan!');
-    showProjectModal.value = false;
-    // Reset Form
-    newProject.value = { category_id: null, client_name: '', project_title: '', contract_value: 0, deadline: '', description: '' };
-    selectCategory(selectedCategoryId.value as number); // Refresh data
-    fetchStats(); // Update angka dashboard
+    const res = await api.get('/master-data/all');
+    allMasterData.value = res.data;
   } catch (e) {
-    alert("Gagal simpan project");
-  } finally { isSaving.value = false; }
-};
-
-const addTask = async (projectId: number, event: any) => {
-  const taskName = event.target.value;
-  if (!taskName) return;
-  try {
-    const res = await api.post('/project-tasks', { project_id: projectId, task_name: taskName });
-    const project = workData.value.find(p => p.id === projectId);
-    if (project) {
-      project.tasks.push({ id: res.data.id, task_name: taskName, is_completed: false });
-    }
-    event.target.value = '';
-  } catch (e) { console.error("Gagal tambah task"); }
-};
-
-const toggleTaskStatus = async (task: any) => {
-  try { await api.put(`/project-tasks/${task.id}/toggle`); } catch (e) { task.is_completed = !task.is_completed; }
+    console.error("Gagal load master data", e);
+  }
 };
 
 const fetchStats = async () => {
   try {
     const res = await api.get('/works/stats');
-    if (res?.data) {
-      stats.value.forEach((s) => {
-        const val = res.data.summary?.[s.key];
-        if (val !== undefined) s.value = val.toLocaleString();
+    if (res.data) {
+      stats.value.forEach(s => {
+        if (res.data.summary[s.key] !== undefined) {
+          s.value = res.data.summary[s.key].toLocaleString();
+        }
       });
-      barSeries.value = [{ name: 'Project Growth', data: res.data.monthly || [] }];
+      barSeries.value = [{ name: 'Works Status', data: res.data.monthly }];
+      donutSeries.value = res.data.categories;
     }
-  } finally { isLoading.value = false; }
+  } catch (e) {
+    console.error("Gagal ambil statistik", e);
+  }
 };
 
+const fetchProjects = async () => {
+  isLoading.value = true;
+  try {
+    const res = await api.get('/projects');
+    workData.value = res.data;
+  } catch (e) {
+    console.error("Gagal ambil data project", e);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const handleSaveMaster = async () => {
+  if (!setupForm.value.name) return alert("Nama harus diisi!");
+  try {
+    await api.post(`/master-data/${setupTab.value}`, {
+      name: setupForm.value.name,
+      icon: setupTab.value === 'categories' ? setupForm.value.icon : null
+    });
+    setupForm.value.name = '';
+    fetchMasterData(); // Refresh list setelah simpan
+    alert("Data master berhasil disimpan!");
+  } catch (e) {
+    alert("Gagal menyimpan data master");
+  }
+};
+
+// --- 4. LIFECYCLE ---
 onMounted(() => {
-  fetchCategories();
   fetchStats();
+  fetchProjects();
+  fetchMasterData();
 });
-watch(() => route.params.id, (newId) => {
-  if (newId && route.query.cat) selectCategory(Number(route.query.cat));
+
+watch(currentTab, (newTab) => {
+  if (newTab === 'data') fetchProjects();
+  if (newTab === 'overview') fetchStats();
+  if (newTab === 'setup') fetchMasterData();
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f0f2f5] pb-32 w-full overflow-x-hidden">
+  <div class="min-h-screen bg-[#F8FAFC] pb-20 md:pl-20 font-sans overflow-x-hidden text-slate-900">
     
-    <div class="bg-gradient-to-r from-indigo-900 via-blue-900 to-indigo-950 p-6 md:p-12 shadow-lg w-full">
-      <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <div class="flex items-center gap-4 md:gap-6 w-full md:w-auto">
-          <div class="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl md:rounded-3xl flex items-center justify-center shadow-2xl border-4 border-white/20 flex-none transition-transform hover:scale-105">
-            <span class="text-3xl md:text-4xl font-black text-indigo-900 italic">M</span>
+    <div class="max-w-6xl mx-auto px-6 mt-8">
+      
+      <div class="bg-white border-x border-t border-slate-200 rounded-t-3xl pt-8 pb-4 relative shadow-sm">
+        <div class="flex items-center gap-6 px-8">
+          <div class="relative z-10">
+            <div class="w-16 h-16 bg-[#EF4444] rounded-2xl flex items-center justify-center shadow-[0_12px_30px_-5px_rgba(239,68,68,0.35)] absolute -bottom-10 left-0">
+              <i class="fas fa-check text-3xl text-white"></i>
+            </div>
+            <div class="w-16 h-6"></div> 
           </div>
-          
-          <div class="text-white text-left flex-1">
-            <h1 class="text-2xl md:text-3xl font-black uppercase italic tracking-tighter">All Works</h1>
-            <div class="mt-3 bg-white/10 p-1 rounded-xl backdrop-blur-md inline-flex border border-white/10 gap-1 overflow-x-auto max-w-full">
-              <button v-for="tab in ['overview', 'data', 'setup']" :key="tab"
-                @click="currentTab = tab" 
-                :class="currentTab === tab ? 'bg-white text-indigo-900 shadow-sm' : 'text-white hover:bg-white/5'" 
-                class="px-4 md:px-6 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer whitespace-nowrap">
-                {{ tab }}
+          <div>
+            <h1 class="text-[26px] font-black text-[#2E3A8C] tracking-tighter leading-none mb-2 uppercase">Works</h1>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#F1F5F9] border-x border-y border-slate-200 py-3 px-8 md:pl-[120px]"> 
+        <div class="flex gap-6">
+          <button v-for="tab in ['overview', 'data', 'setup']" :key="tab"
+            @click="currentTab = tab" 
+            class="group text-[11px] font-bold flex items-center gap-2 transition-all capitalize"
+            :class="currentTab === tab ? 'text-[#2E3A8C]' : 'text-slate-400'">
+            <div class="w-4 h-4 rounded bg-slate-200 flex items-center justify-center text-[8px] transition-colors" 
+                 :class="currentTab === tab ? 'bg-[#2E3A8C] text-white' : 'group-hover:bg-slate-300'">
+              <i class="fas fa-check"></i>
+            </div>
+            {{ tab }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="currentTab === 'overview'" class="animate-in fade-in duration-500 space-y-6">
+        
+        <div class="bg-white border-x border-b border-slate-200 rounded-b-3xl shadow-sm overflow-hidden">
+          <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <i class="fas fa-th text-[#2E3A8C] text-lg"></i>
+              <h2 class="text-lg font-black text-[#2E3A8C]">Overview Analysis</h2>
+            </div>
+            <button class="text-[#2E3A8C] opacity-60 hover:opacity-100 transition-opacity">
+              <i class="fas fa-calendar-alt text-2xl"></i>
+            </button>
+          </div>
+
+          <div class="p-8">
+            <div class="flex items-center gap-3 mb-8 text-[#2E3A8C]">
+              <i class="fas fa-th-large text-sm"></i>
+              <h3 class="text-lg font-bold">Works Status</h3>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+              <div v-for="s in stats" :key="s.label" :class="s.color" 
+                class="py-5 px-2 rounded-xl text-white text-center shadow-[0_8px_15px_-3px_rgba(0,0,0,0.1)] transition-transform hover:scale-105">
+                <p class="text-xl font-black leading-none mb-1.5">{{ s.value }}</p>
+                <p class="text-[11px] font-medium uppercase opacity-90 tracking-wide">{{ s.label }}</p>
+              </div>
+            </div>
+
+            <div class="relative px-10">
+              <button class="absolute left-0 top-1/2 -translate-y-1/2 text-slate-200 text-5xl hover:text-slate-300">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <div class="w-full">
+                <WorksChart :series-data="barSeries" chart-type="bar" :height="350" />
+              </div>
+              <button class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-200 text-5xl hover:text-slate-300">
+                <i class="fas fa-chevron-right"></i>
               </button>
             </div>
           </div>
         </div>
-        
-        <button @click="showProjectModal = true" class="w-full md:w-auto bg-rose-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 shadow-xl shadow-rose-200 transition-all active:scale-95">
-          <i class="fas fa-plus-circle mr-2"></i> Input New Project
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <WorksChart :series-data="donutSeries" chart-type="donut" title="Works Category" />
+          <WorksChart :series-data="donutSeries" chart-type="donut" title="Works Package" />
+          <WorksChart :series-data="donutSeries" chart-type="donut" title="Works Status" />
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+          <div class="flex items-center gap-3 mb-8 text-[#2E3A8C]">
+            <i class="fas fa-th-large text-sm"></i>
+            <h3 class="text-lg font-bold">Works Priority</h3>
+          </div>
+          <div class="flex flex-col md:flex-row items-center gap-10">
+            <div class="w-full md:w-1/3">
+              <WorksChart :series-data="[25, 28, 29, 19]" chart-type="donut" :height="250" />
+            </div>
+            <div class="w-full md:w-2/3 relative">
+              <WorksChart :series-data="[{ name: 'Priority', data: [800, 50, 130, 150, 210] }]" chart-type="bar-priority" :height="280" />
+              <i class="fas fa-chevron-right absolute -right-4 top-1/2 -translate-y-1/2 text-slate-100 text-6xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-10">
+          <div v-for="title in ['Category', 'Package', 'Status']" :key="title" class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <h4 class="text-center text-[#2E3A8C] font-bold text-sm mb-4 italic">Works {{ title }}</h4>
+            <div class="flex items-center gap-2">
+              <div class="w-1/2">
+                <WorksChart :series-data="[40, 30, 20, 10]" chart-type="donut-mini" :height="180" />
+              </div>
+              <div class="w-1/2 text-[11px] font-bold text-[#2E3A8C] space-y-1.5">
+                <p>1. Menu Satu</p>
+                <p>2. Menu Dua</p>
+                <p>3. Menu Tiga</p>
+                <p>4. Menu Empat</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+     <div v-if="currentTab === 'data'" class="flex flex-col md:flex-row gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+    
+        <aside class="w-full md:w-56 flex-none">
+          <div class="bg-[#F8FAFC] border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div class="bg-white border-b border-slate-200 px-3 py-2 text-center uppercase tracking-widest text-[9px] font-bold text-blue-800">Navigation</div>
+            <div class="p-1.5 space-y-0.5">
+              <button v-for="nav in ['All Status', 'All Priority', 'All Category', 'All Package']" :key="nav"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-black text-[#2E3A8C] uppercase hover:bg-white rounded-lg transition-all group">
+                <i class="fas fa-folder text-slate-400 group-hover:text-blue-600 text-xs"></i>
+                {{ nav }}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <main class="flex-1 space-y-3">
+          <div class="bg-white border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-sm">
+            <i class="fas fa-th-large text-[#2E3A8C] text-xs"></i>
+            <span class="text-[11px] font-black text-[#2E3A8C] uppercase tracking-wider">Works Detail</span>
+          </div>
+
+          <div v-for="project in workData" :key="project.id" 
+              class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col md:flex-row relative mb-3 transition-all hover:shadow-md">
+            
+            <div class="w-1 h-full absolute left-0 top-0" :class="project.color || 'bg-green-500'"></div>
+
+            <div class="p-3 flex flex-col items-center justify-center border-r border-slate-50 md:w-26 flex-none">
+              <div class="w-14 h-14 bg-white flex items-center justify-center p-1 mb-1 text-slate-200">
+                <img v-if="project.logo" :src="project.logo" class="max-w-full max-h-full object-contain opacity-90" />
+                <i v-else class="fas fa-image text-2xl"></i>
+              </div>
+              <span class="text-[8px] font-medium text-slate-400 tracking-tighter uppercase">ID-{{ project.id }}</span>
+            </div>
+
+            <div class="flex-1 p-3 overflow-hidden">
+              <div class="mb-2 border-b border-slate-50 pb-1.5">
+                <p class="text-[7px] text-slate-300 italic mb-0.5">Crate by : Suhery Solutions 10/11/2024</p>
+                <h3 class="text-[11px] font-black text-blue-700 uppercase leading-none tracking-tight">
+                  {{ project.project_title }}
+                </h3>
+              </div>
+
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-4 gap-y-0.5">
+                
+                <div class="space-y-0.5">
+                  <div class="flex text-[9px] leading-tight items-start">
+                    <span class="w-16 text-slate-500 font-medium uppercase flex-none">Customer</span>
+                    <span class="font-bold text-slate-800 break-words flex-1">: {{ project.client_name }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-16 text-slate-500 font-medium uppercase flex-none">Start Date</span>
+                    <span class="font-bold text-slate-800">: {{ project.start_date }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-16 text-slate-500 font-medium uppercase flex-none">Finish Data</span>
+                    <span class="font-bold text-slate-800">: {{ project.finish_date }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-16 text-slate-500 font-medium uppercase flex-none">Total Day</span>
+                    <span class="font-bold text-slate-800">: {{ project.total_day }}</span>
+                  </div>
+                </div>
+
+                <div class="space-y-0.5 border-l border-slate-50 lg:pl-3">
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-24 text-slate-500 font-medium uppercase flex-none">Work Category</span>
+                    <span class="font-bold text-slate-800">: {{ project.category }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-24 text-slate-500 font-medium uppercase flex-none">Works Status</span>
+                    <span class="font-bold text-slate-800">: {{ project.status }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-24 text-slate-500 font-medium uppercase flex-none">Works Priority</span>
+                    <span class="font-bold text-slate-800">: {{ project.priority }}</span>
+                  </div>
+                  <div class="flex text-[9px] leading-tight items-center">
+                    <span class="w-24 text-slate-500 font-medium uppercase flex-none">Works Package</span>
+                    <span class="font-bold text-slate-800">: {{ project.package }}</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="md:w-22 bg-slate-50/30 flex flex-col divide-y divide-slate-100 border-l border-slate-100">
+              <div class="flex-1 flex flex-col items-center justify-center p-2 text-center">
+                <p class="text-base font-black text-blue-700 leading-none mb-0.5">{{ project.progress }} %</p>
+                <p class="text-[7px] font-bold text-blue-900 uppercase tracking-widest">Progress</p>
+              </div>
+              <div class="flex-1 flex flex-col items-center justify-center p-2 text-center">
+                <p class="text-base font-black text-blue-700 leading-none">{{ project.team_count }}</p>
+                <p class="text-[7px] font-bold text-blue-900 uppercase tracking-tighter leading-none mt-0.5">Total Teamwork</p>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+
+    
+
+    <div v-if="currentTab === 'setup'" class="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+  
+  <aside class="w-full md:w-64 flex-none">
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <div class="bg-slate-50 border-b border-slate-200 px-4 py-3">
+        <span class="text-[10px] font-black text-[#2E3A8C] uppercase tracking-widest">Master Data</span>
+      </div>
+      <div class="p-2 space-y-1">
+        <button v-for="menu in [
+          { id: 'categories', label: 'Work Categories', icon: 'fas fa-tags' },
+          { id: 'status', label: 'Works Status', icon: 'fas fa-tasks' },
+          { id: 'priority', label: 'Works Priority', icon: 'fas fa-exclamation-circle' },
+          { id: 'package', label: 'Works Package', icon: 'fas fa-box-open' }
+        ]" :key="menu.id"
+          @click="setupTab = menu.id"
+          class="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase rounded-lg transition-all"
+          :class="setupTab === menu.id ? 'bg-[#2E3A8C] text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'">
+          <i :class="menu.icon" class="w-4"></i>
+          {{ menu.label }}
         </button>
       </div>
     </div>
+  </aside>
 
-    <div class="w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-6 md:gap-8">
-      
-      <aside class="w-full lg:w-72 space-y-4 flex-none">
-        <div class="bg-slate-900 text-white p-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-center italic shadow-lg shadow-slate-200">
-          Project Category
+  <main class="flex-1 space-y-6">
+    
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <h3 class="text-xs font-black text-[#2E3A8C] uppercase mb-6 tracking-widest flex items-center gap-2">
+        <i class="fas fa-plus-circle text-blue-600"></i>
+        Add New {{ setupTab }}
+      </h3>
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Name / Title</label>
+          <input v-model="setupForm.name" type="text" 
+            class="w-full mt-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 ring-blue-100 transition-all" 
+            :placeholder="'Enter ' + setupTab + ' name...'">
         </div>
-        
-        <div class="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden font-black italic">
-          <button v-for="cat in categories" :key="cat.id" 
-            @click="selectCategory(cat.id)"
-            :class="selectedCategoryId === cat.id ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-indigo-50'"
-            class="w-full p-5 text-left text-[11px] uppercase transition-all flex items-center gap-4 cursor-pointer border-b border-slate-50 last:border-0">
-            <div :class="selectedCategoryId === cat.id ? 'bg-white/20' : 'bg-indigo-50'" class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors">
-              <i :class="[cat.icon || 'fas fa-file-alt', selectedCategoryId === cat.id ? 'text-white' : 'text-indigo-600']"></i> 
-            </div>
-            <span class="flex-1">{{ cat.name }}</span>
-            <i v-if="selectedCategoryId === cat.id" class="fas fa-chevron-right text-[10px]"></i>
+        <div v-if="setupTab === 'categories'" class="md:w-48">
+          <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Icon Class</label>
+          <input v-model="setupForm.icon" type="text" 
+            class="w-full mt-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 ring-blue-100 transition-all" 
+            placeholder="fas fa-folder">
+        </div>
+        <div class="flex items-end">
+          <button @click="handleSaveMaster" 
+            class="bg-blue-600 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95">
+            Save Data
           </button>
         </div>
-      </aside>
-
-      <main class="flex-1 min-w-0 w-full">
-        
-        <div v-if="currentTab === 'overview'" class="space-y-8 animate-in fade-in duration-500">
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
-            <div v-for="s in stats" :key="s.label" :class="[s.color, s.shadow]" class="p-5 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] text-white shadow-lg text-center transform transition hover:scale-105">
-              <p class="text-xl md:text-2xl font-black leading-none">{{ isLoading ? '...' : s.value }}</p>
-              <p class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest mt-2 opacity-80">{{ s.label }}</p>
-            </div>
-          </div>
-          <Works v-if="!isLoading" :series-data="barSeries" chart-type="bar" />
-        </div>
-
-        <div v-if="currentTab === 'data'" class="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          
-          <div v-if="workData.length === 0" class="bg-white p-12 md:p-20 rounded-[2.5rem] md:rounded-[3rem] border border-dashed border-slate-300 text-center">
-             <i class="fas fa-folder-open text-5xl text-slate-200 mb-4"></i>
-             <p class="text-slate-400 font-black italic uppercase text-sm">No Projects in this category.</p>
-             <button @click="showProjectModal = true" class="mt-4 text-indigo-600 font-black text-[10px] uppercase tracking-widest">Add your first project here</button>
-          </div>
-          
-          <div v-for="work in workData" :key="work.id" :id="`project-${work.id}`" 
-               class="bg-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border border-slate-200 mb-6 shadow-sm relative transition-all duration-500 hover:shadow-md">
-            
-            <div class="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
-              <div class="flex-1">
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <span class="text-[9px] font-black uppercase text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full tracking-widest border border-indigo-100">{{ work.client_name }}</span>
-                    <span class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full tracking-widest border border-emerald-100">Rp {{ Number(work.contract_value).toLocaleString() }}</span>
-                </div>
-                <h3 class="text-2xl md:text-3xl font-black text-indigo-950 uppercase italic leading-tight">{{ work.project_title }}</h3>
-                <p class="text-[10px] font-bold text-slate-400 mt-3 italic">Target Deadline: {{ work.deadline }}</p>
-              </div>
-              
-              <div class="w-full md:w-auto text-center md:text-right bg-slate-50 p-5 rounded-3xl border border-slate-100 flex-none">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-1">Project Progress</p>
-                <p class="text-4xl font-black text-indigo-600">{{ work.progress_percent }}%</p>
-              </div>
-            </div>
-
-            <div class="bg-slate-50/50 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-slate-100">
-              <p class="text-[10px] font-black text-indigo-950 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
-                <i class="fas fa-tasks text-indigo-600"></i> Milestone & Tasks Detail
-              </p>
-              
-              <div class="flex gap-2 mb-6">
-                <input type="text" placeholder="Add specific task detail... (Hit Enter)" 
-                  @keyup.enter="addTask(work.id, $event)"
-                  class="flex-1 bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold shadow-sm outline-none focus:ring-4 ring-indigo-50 transition-all">
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div v-for="task in work.tasks" :key="task.id" 
-                   class="flex items-center gap-4 bg-white p-5 rounded-2xl border border-slate-100 transition-all hover:border-indigo-200 shadow-sm"
-                   :class="{'bg-emerald-50/30 border-emerald-100': task.is_completed}">
-                    <input type="checkbox" v-model="task.is_completed" @change="toggleTaskStatus(task)"
-                      class="w-6 h-6 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-all">
-                    <span class="text-[11px] md:text-xs font-bold uppercase transition-all flex-1" 
-                      :class="task.is_completed ? 'text-slate-400 line-through' : 'text-slate-700'">
-                      {{ task.task_name }}
-                    </span>
-                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="currentTab === 'setup'" class="bg-white p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-slate-200 shadow-sm">
-           <h2 class="text-2xl font-black text-indigo-950 uppercase italic mb-8">System Configuration</h2>
-           <div class="bg-slate-50 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] mb-10">
-               <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Add New Group/Category</label>
-               <div class="flex flex-col md:flex-row gap-4 mt-3">
-                  <input v-model="newCategory.name" type="text" placeholder="Category Name (e.g. Hospital Projects)..." class="flex-1 px-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-indigo-50 font-bold text-sm transition-all">
-                  <button @click="handleAddCategory" :disabled="isSaving" class="bg-indigo-600 text-white px-10 py-4 md:py-0 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all disabled:opacity-50">
-                    Create Group
-                  </button>
-               </div>
-           </div>
-        </div>
-      </main>
+      </div>
     </div>
 
-    <div v-if="showProjectModal" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-indigo-950/60 backdrop-blur-md" @click="showProjectModal = false"></div>
-        
-        <div class="bg-white w-full max-w-2xl rounded-[3rem] p-8 md:p-12 relative z-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in duration-300">
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h2 class="text-3xl font-black text-indigo-950 uppercase italic leading-none">New Project Data</h2>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3">Masukan data kontrak dan detail project baru</p>
-                </div>
-                <button @click="showProjectModal = false" class="text-slate-300 hover:text-rose-500 transition-colors">
-                  <i class="fas fa-times-circle text-3xl"></i>
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Client Name</label>
-                        <input v-model="newProject.client_name" type="text" placeholder="Nama Rumah Sakit / Instansi" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 ring-indigo-50 outline-none mt-1 transition-all">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Project Title</label>
-                        <input v-model="newProject.project_title" type="text" placeholder="e.g. Implementasi SIMRS" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 ring-indigo-50 outline-none mt-1 transition-all">
-                    </div>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Contract Value (IDR)</label>
-                        <input v-model="newProject.contract_value" type="number" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 ring-indigo-100 outline-none mt-1 transition-all">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Deadline</label>
-                        <input v-model="newProject.deadline" type="date" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 ring-indigo-50 outline-none mt-1 transition-all">
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6">
-                <label class="text-[10px] font-black uppercase text-slate-400 ml-2">Project Brief / Description</label>
-                <textarea v-model="newProject.description" rows="3" class="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 ring-indigo-50 outline-none mt-1 transition-all" placeholder="Detail lingkup pekerjaan..."></textarea>
-            </div>
-
-            <div class="mt-10 flex flex-col md:flex-row gap-4">
-                <button @click="showProjectModal = false" class="flex-1 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
-                <button @click="handleSaveProject" :disabled="isSaving" class="flex-2 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all disabled:opacity-50">
-                    {{ isSaving ? 'Saving Data...' : 'Confirm & Save Project' }}
-                </button>
-            </div>
-        </div>
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-100">
+            <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-16">No</th>
+            <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+            <th v-if="setupTab === 'categories'" class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24 text-center">Icon</th>
+            <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          <tr v-for="(item, index) in filteredMasterData" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
+            <td class="px-6 py-4 text-[10px] font-bold text-slate-300">#{{ index + 1 }}</td>
+            <td class="px-6 py-4">
+              <span class="text-[11px] font-bold text-[#2E3A8C] uppercase tracking-tight">{{ item.name }}</span>
+            </td>
+            <td v-if="setupTab === 'categories'" class="px-6 py-4 text-center">
+              <i :class="item.icon || 'fas fa-folder'" class="text-slate-400"></i>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <button @click="handleDeleteMaster(item.id)" class="text-rose-400 hover:text-rose-600 transition-colors p-2">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </td>
+          </tr>
+          <tr v-if="filteredMasterData.length === 0">
+            <td colspan="4" class="px-6 py-10 text-center text-slate-300 italic text-[10px]">
+              No data found for {{ setupTab }}.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </div>
+  </main>
+</div>
+
+    </div> </div>
 </template>
 
 <style scoped>
-/* Scrollbar Styling agar cantik */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+.font-sans { font-family: 'Inter', sans-serif; }
+.animate-in { animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>

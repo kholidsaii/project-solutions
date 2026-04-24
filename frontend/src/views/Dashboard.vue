@@ -1,59 +1,74 @@
 <script setup lang="ts">
 const menus = [
-  { name: 'Works', icon: 'fas fa-shield-alt', color: 'bg-rose-500', path: '/projects' },
-  { name: 'Teamwork', icon: 'fas fa-users', color: 'bg-indigo-600', path: '/teamwork' },
-  { name: 'Document', icon: 'fas fa-file-alt', color: 'bg-emerald-500', path: '/documents' },
-  { name: 'Support', icon: 'fas fa-headset', color: 'bg-amber-400', path: '/support' },
-  { name: 'Marketing', icon: 'fas fa-briefcase', color: 'bg-fuchsia-500', path: '/sales' },
-  { name: 'Purchasing', icon: 'fas fa-shopping-bag', color: 'bg-purple-600', path: '/purchasing' },
-  { name: 'Accounting', icon: 'fas fa-key', color: 'bg-sky-500', path: '/accounting' },
-  { name: 'Financial', icon: 'fas fa-wallet', color: 'bg-slate-800', path: '/financial' },
-  { name: 'Produks', icon: 'fas fa-box', color: 'bg-green-700', path: '/products' },
-  { name: 'Asset', icon: 'fas fa-cube', color: 'bg-slate-500', path: '/assets' },
-  { name: 'Report', icon: 'fas fa-chart-bar', color: 'bg-rose-400', path: '/reports' },
-  { name: 'Setup', icon: 'fas fa-cog', color: 'bg-orange-500', path: '/settings' },
+  { name: 'Works', icon: 'fas fa-shield-alt', color: 'bg-[#EF4444]', path: '/projects' },
+  { name: 'Teamwork', icon: 'fas fa-users', color: 'bg-[#3B82F6]', path: '/teamwork' },
+  { name: 'Document', icon: 'fas fa-file-alt', color: 'bg-[#22C55E]', path: '/documents' },
+  { name: 'Support', icon: 'fas fa-headset', color: 'bg-[#FBBF24]', path: '/support' },
+  { name: 'Marketing', icon: 'fas fa-briefcase', color: 'bg-[#D946EF]', path: '/sales' },
+  { name: 'Purchasing', icon: 'fas fa-shopping-bag', color: 'bg-[#8B5CF6]', path: '/purchasing' },
+  { name: 'Accounting', icon: 'fas fa-key', color: 'bg-[#0EA5E9]', path: '/accounting' },
+  { name: 'Financial', icon: 'fas fa-wallet', color: 'bg-[#1E293B]', path: '/financial' },
+  { name: 'Produks', icon: 'fas fa-puzzle-piece', color: 'bg-[#15803D]', path: '/products' },
+  { name: 'Asset', icon: 'fas fa-exclamation-triangle', color: 'bg-[#64748B]', path: '/assets' },
+  { name: 'Report', icon: 'fas fa-chart-bar', color: 'bg-[#F43F5E]', path: '/reports' },
+  { name: 'Setup', icon: 'fas fa-cog', color: 'bg-[#F97316]', path: '/settings' },
 ];
 </script>
 
 <template>
-  <div class="w-full flex flex-col items-center p-4 md:p-10 pb-24 md:pb-10">
-    <div class="w-full max-w-5xl flex flex-row justify-between items-center gap-4 mb-8">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl shadow-sm p-1.5 flex items-center justify-center border border-slate-100">
-           <img src="/logo-kerjapro.png" alt="Logo" class="max-w-full" />
-        </div>
-        <div>
-          <h1 class="text-lg md:text-2xl font-black text-indigo-950 leading-none italic uppercase">KERJAPRO</h1>
-          <p class="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Solutions</p>
-        </div>
-      </div>
+  <div class="min-h-screen bg-[#F8FAFC] flex flex-col items-center pt-6 pr-4 pl-20 md:pl-32 transition-all">
+    
+    <div class="w-full max-w-[420px]">
       
-      <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-50">
-        <i class="fas fa-cloud-sun text-xl text-amber-400"></i>
-        <div class="text-right">
-          <p class="text-xs font-black text-slate-800 leading-none">28°C</p>
-          <p class="hidden sm:block text-[9px] font-bold text-slate-400 uppercase">Bogor</p>
+      <div class="flex justify-between items-start mb-5 gap-2">
+        <div class="flex items-center gap-2 min-w-0"> <div class="flex-shrink-0">
+             <img src="/logo-kerjapro1.png" alt="Logo" class="w-4" />
+          </div>
+          <div class="truncate">
+            <h1 class="text-sm md:text-base font-black text-[#2E3A8C] tracking-tight leading-none uppercase">KERJAPRO.COM</h1>
+            <p class="text-[6px] md:text-[7px] text-slate-400 font-medium italic mt-0.5 uppercase tracking-tighter">Project Management</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1 md:gap-2 text-[#2E3A8C] flex-shrink-0">
+          <i class="fas fa-cloud-sun-rain text-sm md:text-xl opacity-20"></i>
+          <div class="leading-tight text-right">
+            <div class="flex items-baseline justify-end gap-1">
+              <span class="text-[5px] md:text-[6px] font-bold opacity-50">14:00</span>
+              <span class="text-xs md:text-base font-black">28 C</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 w-full max-w-5xl">
-      <router-link v-for="menu in menus" :key="menu.name" :to="menu.path" 
-        class="group relative flex flex-col items-center justify-center aspect-square rounded-[2rem] md:rounded-[2.5rem] transition-all duration-500 hover:-translate-y-2"
-        :class="[menu.color, 'shadow-xl shadow-slate-200']">
-        
-        <div class="w-12 h-12 md:w-20 md:h-20 bg-white/20 rounded-2xl md:rounded-3xl flex items-center justify-center backdrop-blur-md mb-2 md:mb-4 shadow-inner">
-          <i :class="menu.icon" class="text-2xl md:text-4xl text-white drop-shadow-md"></i>
+      <div class="flex items-center gap-2 mb-5">
+        <div class="flex items-center bg-white shadow-sm rounded-lg p-0.5 border border-slate-50 flex-shrink-0">
+           <button class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center text-blue-800"><i class="fas fa-th-large text-[9px] md:text-[10px]"></i></button>
+           <button class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center text-blue-800 relative border-l border-slate-100 ml-1 pl-1">
+             <i class="far fa-bell text-[9px] md:text-[10px]"></i>
+           </button>
         </div>
-
-        <span class="text-white font-black uppercase text-[9px] md:text-[11px] tracking-[0.1em] md:tracking-[0.2em] italic">
-          {{ menu.name }}
-        </span>
-
-        <div v-if="menu.name === 'Works'" class="absolute top-4 right-4 md:top-6 md:right-6 bg-white text-rose-500 text-[8px] md:text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-lg animate-bounce">
-          12
+        <div class="relative flex-1">
+          <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-[9px]"></i>
+          <input type="text" class="w-full bg-white shadow-sm border border-slate-50 rounded-lg py-1 pl-8 outline-none text-[10px]" placeholder="Search...">
         </div>
-      </router-link>
+      </div>
+
+      <div class="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-2.5 w-full pb-10">
+        <router-link v-for="menu in menus" :key="menu.name" :to="menu.path" 
+          class="group flex flex-col items-center justify-center aspect-square rounded-[0.8rem] md:rounded-[0.9rem] transition-all shadow-sm"
+          :class="menu.color">
+          
+          <div class="w-6 h-6 md:w-7 md:h-7 bg-white/20 rounded-md flex items-center justify-center mb-1">
+            <i :class="menu.icon" class="text-xs md:text-sm text-white"></i>
+          </div>
+
+          <span class="text-white font-bold text-[6px] md:text-[7px] tracking-tight uppercase text-center px-1">
+            {{ menu.name }}
+          </span>
+        </router-link>
+      </div>
+
     </div>
   </div>
 </template>

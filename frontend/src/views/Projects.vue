@@ -40,7 +40,20 @@ const filteredMasterData = computed(() => {
 });
 
 // --- 3. API ACTIONS ---
-
+// Tambahkan fungsi ini di script setup Projects.vue
+const handleDeleteMaster = async (id: number) => {
+  if (confirm('Yakin ingin menghapus data ini?')) {
+    try {
+      // Sesuaikan endpoint-nya dengan backend kamu
+      await api.delete(`/master-data/${setupTab.value}/${id}`);
+      alert("Data berhasil dihapus!");
+      fetchMasterData(); // Refresh list setelah hapus
+    } catch (e) {
+      console.error(e);
+      alert("Gagal menghapus data.");
+    }
+  }
+};
 const fetchMasterData = async () => {
   try {
     const res = await api.get('/master-data/all');

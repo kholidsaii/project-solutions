@@ -17,7 +17,7 @@ const chartOptions = computed<ApexOptions>(() => {
       toolbar: { show: false }, 
       fontFamily: 'Inter, sans-serif',
       // Tambahkan ini supaya chart tidak goyang saat render
-      animations: { enabled: true, easing: 'easeinout', speed: 800 }
+      animations: { enabled: true, speed: 800 }
     },
     colors: ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ef4444'],
     dataLabels: { enabled: false },

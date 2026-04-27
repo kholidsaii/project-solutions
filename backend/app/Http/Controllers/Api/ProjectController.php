@@ -15,6 +15,7 @@ class ProjectController extends Controller
             'status'     => 'work_statuses',
             'priority'   => 'work_priorities',
             'package'    => 'work_packages',
+            'projects'   => 'projects', // Tambahkan ini agar bisa akses tabel project langsung
             default      => null
         };
     }
@@ -227,81 +228,108 @@ class ProjectController extends Controller
 
     public function getMasterData()
     {
+        // Pastikan urutan dan nama key sesuai dengan yang dipanggil allMasterData di Vue
         return response()->json([
-            'categories' => DB::table('work_categories')->get(),
-            'statuses'   => DB::table('work_statuses')->get(),
-            'priorities' => DB::table('work_priorities')->get(),
-            'packages'   => DB::table('work_packages')->get(),
+            'categories' => DB::table('work_categories')->orderBy('id', 'asc')->get(),
+            'status'     => DB::table('work_statuses')->orderBy('id', 'asc')->get(),
+            'priority'   => DB::table('work_priorities')->orderBy('id', 'asc')->get(),
+            'package'    => DB::table('work_packages')->orderBy('id', 'asc')->get(),
         ]);
     }
 
     public function storeMaster(Request $request, $type)
     {
         $table = $this->getTableName($type);
-        
-        $data = [
-            'name' => $request->name,
-            'created_at' => now()
-        ];
-
-        if ($type === 'categories' && $request->hasFile('image')) {
-            $file = $request->file('image');
-            
-            // Simpan di folder: public/uploads/categories
-            // Laravel otomatis kasih nama unik
-            $path = $file->store('categories', 'public_uploads'); 
-            
-            $data['image_path'] = $path; // Simpan path-nya saja: "categories/nama_file.jpg"
-        }
-
-        DB::table($table)->insert($data);
-        return response()->json(['message' => 'Saved!']);
-    }
-    public function updateMaster(Request $request, $type, $id)
-    {
-        // Sekarang $this->getTableName sudah ada, jadi tidak akan undefined lagi
-        $table = $this->getTableName($type);
-        
-        if (!$table) {
-            return response()->json(['message' => 'Tipe master data tidak valid'], 400);
-        }
+        if (!$table) return response()->json(['message' => 'Invalid type'], 400);
 
         try {
-            $data = [
-                'name'       => $request->name,
-                'updated_at' => now()
-            ];
+            $data = ['name' => $request->name, 'created_at' => now()];
 
-            // Khusus kategori kalau ada icon atau image
+            // Jika menambah kategori baru, sekalian siapkan field projectnya
             if ($type === 'categories') {
-                if ($request->has('icon')) {
-                    $data['icon'] = $request->icon;
-                }
+                $data['icon'] = $request->icon ?? 'fas fa-folder';
+                $data['client_name'] = $request->client_name ?? '-';
                 
-               if ($request->hasFile('image')) {
+                if ($request->hasFile('image')) {
                     $file = $request->file('image');
-                    $path = $file->store('categories', 'public_uploads'); 
-                    
-                    // CUKUP SIMPAN $path SAJA! 
-                    // Hasilnya nanti cuma: "categories/nama_file.jpg"
+                    $path = $file->store('categories', 'public_uploads');
                     $data['image_path'] = $path; 
                 }
             }
 
-            DB::table($table)->where('id', $id)->update($data);
-
-            return response()->json(['message' => 'Data berhasil diupdate!'], 200);
+            DB::table($table)->insert($data);
+            return response()->json(['message' => 'Berhasil disimpan']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-    public function destroy($id)
+
+    public function updateMaster(Request $request, $type, $id)
     {
+        $table = $this->getTableName($type);
+        if (!$table) return response()->json(['message' => 'Tipe tidak valid'], 400);
+
         try {
-            DB::table('projects')->where('id', $id)->delete();
-            return response()->json(['message' => 'Project berhasil dihapus!'], 200);
+            // JIKA YANG DIEDIT ADALAH KATEGORI (PROJECT TITLE)
+            // Kita harus update tabel 'projects' agar field Client, Date, dll masuk.
+            if ($type === 'categories') {
+                $data = [
+                    'project_title' => $request->name,
+                    'client_name'   => $request->client_name,
+                    'start_date'    => $request->start_date,
+                    'finish_date'   => $request->finish_date,
+                    'package'       => $request->package,
+                    'updated_at'    => now()
+                ];
+
+                // Hilangkan nilai null agar tidak menimpa data lama
+                $data = array_filter($data, fn($value) => !is_null($value));
+
+                // Cek jika ada upload logo baru di tabel project
+                if ($request->hasFile('image')) {
+                    $file = $request->file('image');
+                    $path = $file->store('categories', 'public_uploads');
+                    $data['logo'] = $path; // Di tabel projects kolomnya 'logo'
+                }
+
+                // Update ke tabel projects (bukan work_categories) 
+                // karena kita menganggap kategori di UI adalah representasi Project
+                DB::table('projects')->where('id', $id)->update($data);
+
+                return response()->json(['message' => 'Detail Project berhasil diupdate!']);
+            }
+
+            // JIKA YANG DIEDIT ADALAH MASTER DATA (Status/Priority/Package)
+            // Cukup update kolom 'name' saja di tabel masternya
+            DB::table($table)->where('id', $id)->update([
+                'name'       => $request->name,
+                'updated_at' => now()
+            ]);
+
+            return response()->json(['message' => 'Master ' . $type . ' berhasil diupdate!']);
+
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Gagal menghapus project'], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    // Perbaikan fungsi delete: harus dinamis sesuai tab yang dipilih
+    public function deleteMaster($type, $id)
+    {
+        $table = $this->getTableName($type);
+        if (!$table) return response()->json(['message' => 'Invalid type'], 400);
+
+        try {
+            DB::table($table)->where('id', $id)->delete();
+            return response()->json(['message' => 'Data berhasil dihapus!'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus data'], 500);
+        }
+    }
+    public function getMasterDataByType($type) {
+        $table = $this->getTableName($type);
+        if (!$table) return response()->json([], 400);
+        
+        return response()->json(DB::table($table)->orderBy('id', 'asc')->get());
     }
 }

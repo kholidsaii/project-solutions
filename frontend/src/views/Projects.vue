@@ -150,18 +150,30 @@ const getImageUrl = (path: string | null): string | undefined => {
 };
 // ==========================================
 // 4. TAB: SETUP (Master Data Management)
+// bagian setup kita pindah ke ProjectSetup.vue biar gak terlalu penuh di sini
 // ==========================================
 const setupTab = ref('categories');
 const isEditing = ref(false);
 const editingId = ref<number | null>(null);
 const selectedFile = ref<File | null>(null);
-const setupForm = ref({ name: '', icon: 'fas fa-folder' });
+const setupForm = ref({ 
+  name: '', 
+  icon: 'fas fa-folder',
+  // Tambahkan field pendukung agar bisa diedit di Setup
+  client_name: '',
+  start_date: '',
+  finish_date: '',
+  package: '',
+  status: 'Planning',
+  priority: 'Medium'
+});
 
 const allMasterData = ref({
   categories: [] as any[],
   status: [] as any[],
   priority: [] as any[],
-  package: [] as any[]
+  package: [] as any[],
+  color: [] as any[]
 });
 
 const filteredMasterData = computed(() => {
@@ -172,21 +184,55 @@ const filteredMasterData = computed(() => {
 const onFileChange = (e: any) => {
   selectedFile.value = e.target.files[0];
 };
-
+watch(setupTab, () => {
+  cancelEdit();
+});
 const handleEditMaster = (item: any) => {
   isEditing.value = true;
   editingId.value = item.id;
+  
+  // Data Master selalu masuk ke .name
   setupForm.value.name = item.name;
-  setupForm.value.icon = item.icon || 'fas fa-folder';
+  
+  // Data Detail hanya di-load jika di tab categories
+  if (setupTab.value === 'categories') {
+    setupForm.value.client_name = item.client_name || '-';
+    setupForm.value.start_date = item.start_date || '';
+    setupForm.value.finish_date = item.finish_date || '';
+    setupForm.value.package = item.package || '-';
+    setupForm.value.icon = item.icon || 'fas fa-folder';
+  }
 };
 
 const cancelEdit = () => {
   isEditing.value = false;
   editingId.value = null;
-  setupForm.value = { name: '', icon: 'fas fa-folder' };
   selectedFile.value = null;
+  
+  // Isi semua field biar TS gak marah
+  setupForm.value = { 
+    name: '', 
+    icon: 'fas fa-folder',
+    client_name: '-',
+    start_date: '',
+    finish_date: '',
+    package: '-',
+    status: 'Planning',
+    priority: 'Medium'
+  };
 };
-
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '28 Jan, 12.30 AM'; // Fallback sesuai figma
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+  }) + ', ' + date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
 // ==========================================
 // 5. API ACTIONS (Fetching & Saving)
 // ==========================================
@@ -220,15 +266,21 @@ const fetchProjects = async () => {
 
 const fetchMasterData = async () => {
   try {
-    // Sync Categories
-    const resCat = await api.get('/work-categories');
+    const [resCat, resStatus, resPriority, resPackage] = await Promise.all([
+      api.get('/work-categories'),
+      api.get('/master-data/status'),   // Pastikan endpoint ini ada di Laravel
+      api.get('/master-data/priority'), // Pastikan endpoint ini ada di Laravel
+      api.get('/master-data/package')   // Pastikan endpoint ini ada di Laravel
+    ]);
+
     allMasterData.value.categories = resCat.data;
-    
-    // Sync Master All (Jika endpoint /master-data/all sudah ada)
-    // const resAll = await api.get('/master-data/all');
-    // allMasterData.value = resAll.data;
+    allMasterData.value.status = resStatus.data;
+    allMasterData.value.priority = resPriority.data;
+    allMasterData.value.package = resPackage.data;
+
+    console.log("Semua Master Data Berhasil di-sync!");
   } catch (e) {
-    console.error("Gagal load master data", e);
+    console.error("Gagal sinkronisasi data", e);
   }
 };
 
@@ -236,8 +288,18 @@ const handleSaveMaster = async () => {
   if (!setupForm.value.name) return alert("Nama wajib diisi!");
 
   const formData = new FormData();
+  
+  // 1. Tambahkan Field Dasar
   formData.append('name', setupForm.value.name);
   
+  // 2. Tambahkan Field Detail (Agar tidak kosong lagi di database)
+  // Pakai operator || '-' supaya kalau kosong tetap ada isinya di DB
+  formData.append('client_name', setupForm.value.client_name || '-');
+  formData.append('start_date', setupForm.value.start_date || '');
+  formData.append('finish_date', setupForm.value.finish_date || '');
+  formData.append('package', setupForm.value.package || '-');
+
+  // 3. Khusus Kategori (Icon & Gambar)
   if (setupTab.value === 'categories') {
     formData.append('icon', setupForm.value.icon || 'fas fa-folder');
     if (selectedFile.value) {
@@ -249,30 +311,34 @@ const handleSaveMaster = async () => {
     let url = `/master-data/${setupTab.value}`;
     
     if (isEditing.value && editingId.value) {
-      // UNTUK UPDATE:
+      // --- MODE UPDATE ---
       url = `/master-data/${setupTab.value}/${editingId.value}`;
       
-      // Trik Laravel: Gunakan POST tapi selipkan _method PUT
-      // Karena multipart/form-data sering gagal kalau pakai method PUT asli
+      // Trik Laravel: Method Spoofing untuk Multipart
       formData.append('_method', 'PUT');
       
       await api.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert("Data berhasil diupdate!");
+      alert("Data " + setupTab.value + " berhasil diupdate!");
     } else {
-      // UNTUK TAMBAH BARU:
+      // --- MODE TAMBAH BARU ---
       await api.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert("Data berhasil disimpan!");
+      alert("Data " + setupTab.value + " berhasil disimpan!");
     }
 
+    // Reset Form & Refresh Data
     cancelEdit();
-    fetchMasterData(); // Refresh list
+    fetchMasterData(); 
+    // Jika ini tab categories, sekalian refresh project list kalau perlu
+    if (setupTab.value === 'categories') fetchProjects(); 
+
   } catch (e: any) {
-    console.error(e);
-    alert("Gagal memproses data: " + (e.response?.data?.message || e.message));
+    console.error("Error Detail:", e);
+    const msg = e.response?.data?.message || e.message;
+    alert("Gagal memproses data: " + msg);
   }
 };
 
@@ -612,111 +678,145 @@ watch(currentTab, (newTab) => {
 
     <div v-if="currentTab === 'setup'" class="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
   
-      <aside class="w-full md:w-64 flex-none">
-        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div class="bg-slate-50 border-b border-slate-200 px-4 py-3">
-            <span class="text-[10px] font-black text-[#2E3A8C] uppercase tracking-widest">Master Data</span>
-          </div>
-          <div class="p-2 space-y-1">
-            <button v-for="menu in [
-              { id: 'categories', label: 'Work Categories', icon: 'fas fa-tags' },
-              { id: 'status', label: 'Works Status', icon: 'fas fa-tasks' },
-              { id: 'priority', label: 'Works Priority', icon: 'fas fa-exclamation-circle' },
-              { id: 'package', label: 'Works Package', icon: 'fas fa-box-open' }
-            ]" :key="menu.id"
-              @click="setupTab = menu.id"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase rounded-lg transition-all"
-              :class="setupTab === menu.id ? 'bg-[#2E3A8C] text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'">
-              <i :class="menu.icon" class="w-4"></i>
-              {{ menu.label }}
-            </button>
-          </div>
+  <aside class="w-full md:w-64 flex-none">
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm sticky top-4">
+      <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
+        <span class="text-[11px] font-black text-[#2E3A8C] uppercase tracking-widest">Navigation</span>
+      </div>
+      <div class="p-3 space-y-1">
+        <button v-for="menu in [
+          { id: 'status', label: 'Status', icon: 'fas fa-folder' },
+          { id: 'priority', label: 'Priority', icon: 'fas fa-folder' },
+          { id: 'categories', label: 'Category', icon: 'fas fa-folder' },
+          { id: 'package', label: 'Package', icon: 'fas fa-folder' },
+          { id: 'color', label: 'Color', icon: 'fas fa-folder' }
+        ]" :key="menu.id"
+          @click="setupTab = menu.id"
+          class="w-full flex items-center gap-4 px-4 py-3 text-[13px] font-bold rounded-xl transition-all"
+          :class="setupTab === menu.id ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'">
+          <i :class="menu.icon" class="text-slate-400"></i>
+          {{ menu.label }}
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 space-y-6">
+    <div class="bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#2E3A8C]">
+          <i class="fas fa-th-large"></i>
         </div>
-      </aside>
+        <h2 class="text-sm font-black text-[#2E3A8C] uppercase tracking-wider">Works Setup / {{ setupTab }}</h2>
+      </div>
+    </div>
 
-      <main class="flex-1 space-y-6">
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all" :class="isEditing ? 'ring-2 ring-amber-100 bg-amber-50/10' : ''">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
         
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all" :class="isEditing ? 'ring-2 ring-amber-100 bg-amber-50/10' : ''">
-            <h3 class="text-xs font-black text-[#2E3A8C] uppercase mb-6 tracking-widest flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <i :class="isEditing ? 'fas fa-edit text-amber-500' : 'fas fa-plus-circle text-blue-600'"></i>
-                {{ isEditing ? 'Edit' : 'Add New' }} {{ setupTab }}
-              </div>
-              <button v-if="isEditing" @click="cancelEdit" class="text-[9px] font-bold text-rose-500 hover:underline">Cancel Edit</button>
-            </h3>
-            
-           <div class="flex flex-col lg:flex-row flex-wrap gap-4 items-end">
-  
-              <div class="w-full lg:flex-1 min-w-[150px]">
-                <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Name / Title</label>
-                <input v-model="setupForm.name" type="text" 
-                  class="w-full mt-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 ring-blue-100 transition-all"
-                  placeholder="Enter name...">
-              </div>
+        <div :class="setupTab === 'categories' ? 'lg:col-span-4' : 'lg:col-span-8'" class="space-y-1.5">
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-1">
+            {{ setupTab === 'categories' ? 'Project Title' : setupTab.toUpperCase() + ' NAME' }}
+          </label>
+          <input v-model="setupForm.name" type="text" 
+            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none focus:ring-2 ring-blue-100 shadow-inner"
+            :placeholder="'Enter ' + setupTab + '...'">
+        </div>
 
-              <div v-if="setupTab === 'categories'" class="w-full lg:w-72 flex-none">
-                <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Icon / Logo</label>
-                <div class="flex gap-2 items-center mt-1">
-                  <input v-model="setupForm.icon" type="text" 
-                    class="flex-1 bg-slate-50 border-none rounded-xl px-3 py-3 text-[10px] font-bold outline-none"
-                    placeholder="fas fa-tag">
-                  
-                  <label class="w-11 h-11 bg-white border-2 border-dashed border-slate-200 rounded-xl flex-none flex items-center justify-center cursor-pointer hover:border-blue-400 transition-all shadow-sm">
-                    <input type="file" @change="onFileChange" class="hidden" accept="image/*">
-                    <i class="fas fa-image text-slate-400"></i>
-                  </label>
-                </div>
-              </div>
+        <template v-if="setupTab === 'categories'">
+          <div class="lg:col-span-3 space-y-1.5">
+            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Client Name</label>
+            <input v-model="setupForm.client_name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
+          </div>
 
-              <div class="w-full lg:w-auto flex-none">
-                <button @click="handleSaveMaster" 
-                  class="w-full lg:w-48 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
-                  :class="isEditing ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'">
-                  {{ isEditing ? 'Update Data' : 'Save Data' }}
-                </button>
-              </div>
-
+          <div class="lg:col-span-5 space-y-1.5">
+            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Duration (Start - Finish)</label>
+            <div class="flex gap-2">
+              <input v-model="setupForm.start_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+              <input v-model="setupForm.finish_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
             </div>
           </div>
 
-        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <table class="w-full text-left">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-100">
-                <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-16">No</th>
-                <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                <th v-if="setupTab === 'categories'" class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24 text-center">Icon</th>
-                <th class="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-50">
-              <tr v-for="(item, index) in filteredMasterData" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
-                <td class="px-6 py-4 text-[10px] font-bold text-slate-300">#{{ index + 1 }}</td>
-                <td class="px-6 py-4">
-                  <span class="text-[11px] font-bold text-[#2E3A8C] uppercase tracking-tight">{{ item.name }}</span>
-                </td>
-                <td v-if="setupTab === 'categories'" class="px-6 py-4 text-center">
-                  <i :class="item.icon || 'fas fa-folder'" class="text-slate-400"></i>
-                </td>
-                <td class="px-6 py-4 text-right flex items-center justify-end gap-1">
-                  <button @click="handleEditMaster(item)" class="text-amber-400 hover:text-amber-600 transition-colors p-2">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button @click="handleDeleteMaster(item.id)" class="text-rose-400 hover:text-rose-600 transition-colors p-2">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredMasterData.length === 0">
-                <td colspan="4" class="px-6 py-10 text-center text-slate-300 italic text-[10px]">
-                  No data found for {{ setupTab }}.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="lg:col-span-3 space-y-1.5">
+            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Package Type</label>
+            <select v-model="setupForm.package" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
+              <option value="-">- No Package -</option>
+              <option value="Bronze">Bronze</option>
+              <option value="Silver">Silver</option>
+              <option value="Gold">Gold</option>
+            </select>
+          </div>
+
+          <div class="lg:col-span-5 space-y-1.5">
+            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Icon & Logo</label>
+            <div class="flex gap-2">
+              <input v-model="setupForm.icon" type="text" class="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+              <label class="w-10 h-10 bg-white border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center cursor-pointer hover:border-blue-400 transition-all flex-none">
+                <input type="file" @change="onFileChange" class="hidden" accept="image/*">
+                <i class="fas fa-image text-slate-400 text-xs"></i>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        <div class="lg:col-span-4 flex gap-2">
+          <button @click="handleSaveMaster" 
+            class="flex-1 text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
+            :class="isEditing ? 'bg-amber-500 shadow-amber-200' : 'bg-[#2E3A8C] shadow-blue-200'">
+            {{ isEditing ? 'Update' : 'Save' }}
+          </button>
+          <button v-if="isEditing" @click="cancelEdit" class="px-4 py-3 rounded-xl border border-rose-100 bg-rose-50 text-[9px] font-black text-rose-500 uppercase">
+            Cancel
+          </button>
         </div>
-      </main>
+      </div>
     </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
+      <table class="w-full text-left min-w-[600px]">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-100">
+            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">No</th>
+            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {{ setupTab === 'categories' ? 'Project Details' : 'Name / Value' }}
+            </th>
+            <th v-if="setupTab === 'categories'" class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client</th>
+            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          <tr v-for="(item, index) in filteredMasterData" :key="item.id" class="hover:bg-slate-50/40 transition-colors">
+            <td class="px-8 py-5 text-[12px] font-black text-blue-700">#{{ index + 1 }}</td>
+            <td class="px-6 py-5">
+              <div class="flex items-center gap-3">
+                <div v-if="setupTab === 'categories' && item.image_path" class="w-8 h-8 rounded bg-slate-100 flex-none overflow-hidden">
+                  <img :src="getImageUrl(item.image_path)" class="w-full h-full object-cover">
+                </div>
+                <div>
+                  <div class="text-[12px] font-bold text-slate-600 uppercase">{{ item.name }}</div>
+                  <div v-if="setupTab === 'categories'" class="text-[9px] text-slate-400 font-bold uppercase">{{ item.package }} Package</div>
+                </div>
+              </div>
+            </td>
+            <td v-if="setupTab === 'categories'" class="px-6 py-5">
+               <div class="text-[11px] font-bold text-slate-500 uppercase">{{ item.client_name || '-' }}</div>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex justify-end gap-2">
+                <button @click="handleEditMaster(item)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-[#2E3A8C] hover:text-white flex items-center justify-center transition-all">
+                  <i class="fas fa-edit text-xs"></i>
+                </button>
+                <button @click="handleDeleteMaster(item.id)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-all">
+                  <i class="fas fa-trash-alt text-xs"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
 
     </div> </div>
 </template>

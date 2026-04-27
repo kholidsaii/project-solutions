@@ -106,6 +106,14 @@
                 <h4 class="text-[11px] font-black text-blue-900 uppercase tracking-tighter text-center mb-4">Work Configuration</h4>
                 
                 <div class="space-y-4">
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Work Category</label>
+                        <select v-model="project.category_id" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
+                            <option v-for="cat in masterData.categories" :key="cat.id" :value="cat.id">
+                                {{ cat.name }}
+                            </option>
+                        </select>
+                    </div>
                 <div class="flex flex-col">
                     <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Current Status</label>
                     <select v-model="project.status" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
@@ -168,6 +176,7 @@ const project = ref<any>({
 
 // Tambahkan interface atau gunakan 'any' supaya TypeScript gak marah
 const masterData = ref({
+    categories: [] as any[],
   status: [] as any[],    // Tambahkan 'as any[]'
   priority: [] as any[],  // Tambahkan 'as any[]'
   package: [] as any[]    // Tambahkan 'as any[]'
@@ -193,18 +202,29 @@ const fetchDetail = async () => {
 };
 
 // FUNGSI AUTO-SAVE: Dipanggil setiap ada perubahan input
+// Ganti fungsi updateDetail di ProjectDetail.vue menjadi ini:
 const updateDetail = async () => {
   try {
     const id = route.params.id;
-    // Kita gunakan endpoint updateMaster tapi tipenya 'projects'
-    await api.post(`/master-data/projects/${id}`, {
-      ...project.value,
-      name: project.value.project_title, // Map ke field name jika controller butuh
-      _method: 'PUT'
+    
+    // Kirim data ke endpoint khusus detail project
+    await api.put(`/projects/detail/${id}`, {
+      project_title: project.value.project_title,
+      client_name: project.value.client_name,
+      contract_value: project.value.contract_value,
+      start_date: project.value.start_date,
+      finish_date: project.value.finish_date,
+      description: project.value.description,
+      status: project.value.status,
+      priority: project.value.priority,
+      package: project.value.package,
+      category_id: project.value.category_id,
     });
-    console.log("Detail updated automatically");
+    
+    console.log("Laporan project berhasil diperbarui secara otomatis");
+    // Opsional: fetchDetail() jika ingin sinkronisasi ulang data kalkulasi (seperti total_day)
   } catch (e) {
-    console.error("Gagal update otomatis", e);
+    console.error("Gagal memperbarui laporan detail", e);
   }
 };
 

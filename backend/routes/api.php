@@ -36,4 +36,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/master-data/{type}/{id}', [ProjectController::class, 'updateMaster']);
     Route::delete('/master-data/{type}/{id}', [ProjectController::class, 'deleteMaster']);
     Route::get('/get-master-data', [ProjectController::class, 'getMasterData']);
+    Route::put('/projects/detail/{id}', [ProjectController::class, 'updateProjectDetail']);
 });

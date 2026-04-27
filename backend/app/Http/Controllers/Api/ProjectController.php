@@ -332,4 +332,33 @@ class ProjectController extends Controller
         
         return response()->json(DB::table($table)->orderBy('id', 'asc')->get());
     }
+    // 1. Fungsi Update Khusus Detail Project (Dipanggil dari Dashboard Overview)
+public function updateProjectDetail(Request $request, $id)
+{
+    try {
+        $data = [
+            'project_title'   => $request->project_title,
+            'client_name'     => $request->client_name,
+            'contract_value'  => $request->contract_value,
+            'category_id'     => $request->category_id,
+            'start_date'      => $request->start_date,
+            'finish_date'     => $request->finish_date,
+            'description'     => $request->description,
+            'status'          => $request->status,
+            'priority'        => $request->priority,
+            'package'         => $request->package,
+            'updated_at'      => now()
+        ];
+
+        // Pembersihan data null
+        $data = array_filter($data, fn($value) => !is_null($value));
+
+        DB::table('projects')->where('id', $id)->update($data);
+
+        return response()->json(['message' => 'Laporan Project Diperbarui'], 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
 }

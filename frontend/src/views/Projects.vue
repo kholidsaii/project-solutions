@@ -116,19 +116,37 @@ const viewProjectDetail = (id: number | string) => {
 };
 const getImageUrl = (path: string | null): string | undefined => {
   if (!path) return undefined;
-  if (path.startsWith('data:') || path.startsWith('http')) return path;
-
-  // Kita ambil 'http://localhost:8000/api' dari .env kamu
-  const apiUrl = import.meta.env.VITE_API_URL; 
   
-  // Kita buang '/api' di ujungnya biar jadi 'http://localhost:8000'
-  const baseUrl = apiUrl.replace('/api', '');
+  // Jika path sudah lengkap (data image atau URL luar)
+  if (path.startsWith('data:') || path.startsWith('http')) {
+    return path;
+  }
 
-  // Bersihkan path dari double slash atau prefix uploads
+  const apiUrl = import.meta.env.VITE_API_URL || ''; 
+  const baseUrl = apiUrl.replace('/api', '');
+  
+  // 1. Bersihkan semua awalan slash agar konsisten
   let cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  console.log("Cleaned Image Path:", cleanPath); // Debug: Lihat path yang sudah dibersihkan
-  // Gabungkan: http://localhost:8000 + / + uploads/categories/xxx.jpg
-  return `${baseUrl}/${cleanPath}`;
+
+  let finalUrl = '';
+
+  // 2. LOGIKA ANTI-DOUBLE UPLOADS:
+  if (cleanPath.toLowerCase().startsWith('uploads/')) {
+    finalUrl = `${baseUrl}/${cleanPath}`;
+  } else {
+    // 3. Kalau BELUM ADA kata 'uploads/', baru kita tambahkan manual
+    finalUrl = `${baseUrl}/uploads/${cleanPath}`;
+  }
+
+  // LOG UNTUK DEBUGGING
+  console.group('Debug Image URL');
+  console.log('Original Path dari DB:', path);
+  console.log('Clean Path:', cleanPath);
+  console.log('Base URL (After replace):', baseUrl);
+  console.log('Final URL Generated:', finalUrl);
+  console.groupEnd();
+
+  return finalUrl;
 };
 // ==========================================
 // 4. TAB: SETUP (Master Data Management)

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 class ProjectController extends Controller
 {
     private function getTableName($type)
@@ -15,6 +16,7 @@ class ProjectController extends Controller
             'status'     => 'work_statuses',
             'priority'   => 'work_priorities',
             'package'    => 'work_packages',
+            'color'      => 'work_colors',
             'projects'   => 'projects', // Tambahkan ini agar bisa akses tabel project langsung
             default      => null
         };
@@ -89,13 +91,57 @@ class ProjectController extends Controller
     {
         $project = DB::table('projects')
             ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->select('projects.*', 'work_categories.name as category_name')
+            ->select('projects.*', 'work_categories.name as category_name', 'work_categories.image_path as logo')
             ->where('projects.id', $id)
             ->first();
 
         if (!$project) return response()->json(['message' => 'Project tidak ditemukan'], 404);
 
-        $project->tasks = DB::table('project_tasks')->where('project_id', $id)->get();
+        // Load Team
+        $project->team = DB::table('project_teams')
+            ->join('users', 'project_teams.user_id', '=', 'users.id')
+            ->where('project_teams.project_id', $id)
+            ->select('users.id', 'users.name', 'project_teams.role')
+            ->get();
+
+        foreach ($project->team as $member) {
+            $member->tasks_count = DB::table('project_tasks')
+                ->where('project_id', $id)
+                ->where('assigned_to', $member->id)
+                ->count();
+        }
+
+        // Load Tasks
+        $project->tasks = DB::table('project_tasks')->where('project_id', $id)->orderBy('id', 'asc')->get();
+
+        // Load Work Orders
+        $project->work_orders = DB::table('work_orders')->where('project_id', $id)->orderBy('id', 'desc')->get();
+        $project->documents = DB::table('project_documents')
+        ->leftJoin('users', 'project_documents.user_id', '=', 'users.id')
+        ->where('project_documents.project_id', $id)
+        ->select('project_documents.*', 'users.name as uploader_name')
+        ->orderBy('project_documents.created_at', 'desc')
+        ->get();
+        $project->marketings = DB::table('project_marketings')
+        ->leftJoin('users', 'project_marketings.user_id', '=', 'users.id')
+        ->where('project_marketings.project_id', $id)
+        ->select('project_marketings.*', 'users.name as marketer_name')
+        ->orderBy('project_marketings.created_at', 'desc')
+        ->get();
+        // LOAD PRODUCTIONS (LENGKAP DENGAN NAMA USER)
+        $project->productions = DB::table('project_productions')
+            ->leftJoin('users', 'project_productions.user_id', '=', 'users.id')
+            ->where('project_productions.project_id', $id)
+            ->select('project_productions.*', 'users.name as user_name')
+            ->orderBy('project_productions.created_at', 'desc')
+            ->get();
+        $project->purchasings = DB::table('project_purchasings')
+        ->leftJoin('users', 'project_purchasings.user_id', '=', 'users.id')
+        ->where('project_purchasings.project_id', $id)
+        ->select('project_purchasings.*', 'users.name as buyer_name')
+        ->orderBy('project_purchasings.purchase_date', 'desc')
+        ->get();
+
         return response()->json($project);
     }
 
@@ -110,18 +156,17 @@ class ProjectController extends Controller
 
     public function storeTask(Request $request)
     {
-        $request->validate(['project_id' => 'required|exists:projects,id', 'task_name' => 'required']);
-        $id = DB::table('project_tasks')->insertGetId([
+        $request->validate(['project_id' => 'required', 'task_name' => 'required']);
+        DB::table('project_tasks')->insert([
             'project_id' => $request->project_id,
-            'task_name'  => $request->task_name,
+            'task_name' => $request->task_name,
+            'task_category' => $request->task_category ?? 'GENERAL',
+            'priority' => $request->priority ?? 'Medium',
             'is_completed' => false,
             'created_at' => now()
         ]);
-        
-        // Auto-update progress project sederhana (opsional)
         $this->updateProjectProgress($request->project_id);
-
-        return response()->json(['message' => 'Task added', 'id' => $id]);
+        return response()->json(['message' => 'Task Created']);
     }
 
     public function toggleTask($id)
@@ -228,12 +273,12 @@ class ProjectController extends Controller
 
     public function getMasterData()
     {
-        // Pastikan urutan dan nama key sesuai dengan yang dipanggil allMasterData di Vue
         return response()->json([
             'categories' => DB::table('work_categories')->orderBy('id', 'asc')->get(),
             'status'     => DB::table('work_statuses')->orderBy('id', 'asc')->get(),
             'priority'   => DB::table('work_priorities')->orderBy('id', 'asc')->get(),
             'package'    => DB::table('work_packages')->orderBy('id', 'asc')->get(),
+            'color'      => DB::table('work_colors')->orderBy('id', 'asc')->get(), // Tambahkan ini juga
         ]);
     }
 
@@ -333,32 +378,305 @@ class ProjectController extends Controller
         return response()->json(DB::table($table)->orderBy('id', 'asc')->get());
     }
     // 1. Fungsi Update Khusus Detail Project (Dipanggil dari Dashboard Overview)
-public function updateProjectDetail(Request $request, $id)
-{
-    try {
-        $data = [
-            'project_title'   => $request->project_title,
-            'client_name'     => $request->client_name,
-            'contract_value'  => $request->contract_value,
-            'category_id'     => $request->category_id,
-            'start_date'      => $request->start_date,
-            'finish_date'     => $request->finish_date,
-            'description'     => $request->description,
-            'status'          => $request->status,
-            'priority'        => $request->priority,
-            'package'         => $request->package,
-            'updated_at'      => now()
-        ];
+    public function updateProjectDetail(Request $request, $id)
+    {
+        try {
+            $data = [
+                'project_title'   => $request->project_title,
+                'client_name'     => $request->client_name,
+                'contract_value'  => $request->contract_value,
+                'category_id'     => $request->category_id,
+                'start_date'      => $request->start_date,
+                'finish_date'     => $request->finish_date,
+                'description'     => $request->description,
+                'status'          => $request->status,
+                'priority'        => $request->priority,
+                'package'         => $request->package,
+                'updated_at'      => now()
+            ];
 
-        // Pembersihan data null
-        $data = array_filter($data, fn($value) => !is_null($value));
+            // Pembersihan data null
+            $data = array_filter($data, fn($value) => !is_null($value));
 
-        DB::table('projects')->where('id', $id)->update($data);
+            DB::table('projects')->where('id', $id)->update($data);
 
-        return response()->json(['message' => 'Laporan Project Diperbarui'], 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Laporan Project Diperbarui'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
+
+
+    public function updateTask(Request $request, $id)
+    {
+        // Ini buat update dokumentasi (deskripsi)
+        DB::table('project_tasks')->where('id', $id)->update([
+            'description' => $request->description,
+            'updated_at' => now()
+        ]);
+        return response()->json(['message' => 'Documentation Updated']);
+    }
+    public function deleteTask($id)
+    {
+        $task = DB::table('project_tasks')->where('id', $id)->first();
+        if (!$task) return response()->json(['message' => 'Not found'], 404);
+        
+        $projectId = $task->project_id;
+        DB::table('project_tasks')->where('id', $id)->delete();
+        
+        // Update progress project setelah dihapus
+        $this->updateProjectProgress($projectId);
+        
+        return response()->json(['message' => 'Task deleted']);
+    }
+    // --- WORK ORDER MANAGEMENT ---
+
+    public function getWorkOrders($projectId)
+    {
+        // Mengambil WO berdasarkan project_id
+        $orders = DB::table('work_orders')
+            ->where('project_id', $projectId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        return response()->json($orders);
+    }
+
+    public function storeWorkOrder(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'title'      => 'required|string',
+            'budget'     => 'numeric'
+        ]);
+
+        try {
+            $id = DB::table('work_orders')->insertGetId([
+                'project_id'  => $request->project_id,
+                'title'       => $request->title,
+                'description' => $request->description,
+                'pic_name'    => $request->pic_name ?? 'SUHERY',
+                'budget'      => $request->budget ?? 0,
+                'status'      => 'Draft',
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+
+            return response()->json(['message' => 'Work Order Dispatched', 'id' => $id], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateWorkOrder(Request $request, $id)
+    {
+        try {
+            DB::table('work_orders')->where('id', $id)->update([
+                'title'       => $request->title,
+                'description' => $request->description,
+                'pic_name'    => $request->pic_name,
+                'budget'      => $request->budget,
+                'status'      => $request->status,
+                'updated_at'  => now(),
+            ]);
+
+            return response()->json(['message' => 'Work Order Updated']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function deleteWorkOrder($id)
+    {
+        try {
+            DB::table('work_orders')->where('id', $id)->delete();
+            return response()->json(['message' => 'Work Order Deleted']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus Work Order'], 500);
+        }
+    }
+    public function addTeamMember(Request $request, $id)
+    {
+        $request->validate(['user_id' => 'required', 'role' => 'required']);
+        
+        DB::table('project_teams')->insert([
+            'project_id' => $id,
+            'user_id' => $request->user_id,
+            'role' => $request->role,
+            'created_at' => now()
+        ]);
+        
+        return response()->json(['message' => 'Member added']);
+    }
+
+    public function removeTeamMember($projectId, $userId)
+    {
+        DB::table('project_teams')
+            ->where('project_id', $projectId)
+            ->where('user_id', $userId)
+            ->delete();
+            
+        return response()->json(['message' => 'Member removed']);
+    }
+
+public function storeProduction(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'title'      => 'required',
+        'type'       => 'required',
+        'content'    => 'required'
+    ]);
+
+    // Gunakan Auth::id() untuk memperbaiki error P1013
+    DB::table('project_productions')->insert([
+        'project_id' => $request->project_id,
+        'user_id'    => Auth::id(), 
+        'title'      => $request->title,
+        'type'       => $request->type,
+        'content'    => $request->content,
+        'version'    => $request->version ?? '1.0.0',
+        'created_at' => now(),
+        'updated_at' => now()
+    ]);
+
+    return response()->json(['message' => 'Product Deliverable Saved']);
+}
+public function storeDocument(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'title'      => 'required|string|max:255',
+        'file'       => 'required|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:10240', // Max 10MB
+    ]);
+
+    if ($request->hasFile('file')) {
+        $file = $request->file('file');
+        // Simpan ke folder public/uploads/documents
+        $path = $file->store('documents', 'public_uploads');
+
+        DB::table('project_documents')->insert([
+            'project_id' => $request->project_id,
+            'user_id'    => Auth::id(),
+            'title'      => $request->title,
+            'file_path'  => $path,
+            'file_type'  => $file->getClientOriginalExtension(),
+            'file_size'  => $file->getSize(),
+            'description'=> $request->description,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        return response()->json(['message' => 'Document Uploaded Successfully']);
+    }
+
+    return response()->json(['message' => 'No file uploaded'], 400);
 }
 
+public function deleteDocument($id)
+{
+    $doc = DB::table('project_documents')->where('id', $id)->first();
+    if ($doc) {
+        // Hapus file fisik jika perlu
+        // Storage::disk('public_uploads')->delete($doc->file_path);
+        
+        DB::table('project_documents')->where('id', $id)->delete();
+        return response()->json(['message' => 'Document Deleted']);
+    }
+    return response()->json(['message' => 'Document not found'], 404);
+}
+public function storeSupport(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'subject'    => 'required|string|max:255',
+        'priority'   => 'required',
+        'message'    => 'required'
+    ]);
+
+    DB::table('project_supports')->insert([
+        'project_id'  => $request->project_id,
+        'user_id'     => Auth::id(),
+        'assigned_to' => $request->assigned_to, // Bisa null di awal
+        'subject'     => $request->subject,
+        'priority'    => $request->priority,
+        'status'      => 'Open',
+        'message'     => $request->message,
+        'created_at'  => now(),
+        'updated_at'  => now()
+    ]);
+
+    return response()->json(['message' => 'Support Ticket Created']);
+}
+
+public function updateSupportStatus(Request $request, $id)
+{
+    DB::table('project_supports')->where('id', $id)->update([
+        'status'     => $request->status,
+        'updated_at' => now()
+    ]);
+
+    return response()->json(['message' => 'Ticket Status Updated']);
+}
+
+// --- MARKETING MODULE ---
+
+public function storeMarketing(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'title'      => 'required|string',
+        'type'       => 'required',
+    ]);
+
+    DB::table('project_marketings')->insert([
+        'project_id'      => $request->project_id,
+        'user_id'         => Auth::id(),
+        'title'           => $request->title,
+        'type'            => $request->type,
+        'budget_estimate' => $request->budget_estimate ?? 0,
+        'next_follow_up'  => $request->next_follow_up,
+        'status'          => 'Leads',
+        'notes'           => $request->notes,
+        'created_at'      => now(),
+        'updated_at'      => now()
+    ]);
+
+    return response()->json(['message' => 'Marketing Lead Created']);
+}
+public function storePurchasing(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'item_name'  => 'required|string',
+        'amount'     => 'required|numeric',
+        'quantity'   => 'required|numeric',
+    ]);
+
+    DB::table('project_purchasings')->insert([
+        'project_id'    => $request->project_id,
+        'user_id'       => Auth::id(),
+        'item_name'     => $request->item_name,
+        'vendor_name'   => $request->vendor_name,
+        'amount'        => $request->amount,
+        'quantity'      => $request->quantity,
+        'total_price'   => $request->amount * $request->quantity,
+        'purchase_date' => $request->purchase_date ?? now(),
+        'status'        => 'Pending',
+        'notes'         => $request->notes,
+        'created_at'    => now(),
+        'updated_at'    => now()
+    ]);
+
+    return response()->json(['message' => 'Purchase Record Saved']);
+}
+public function deletePurchasing($id)
+{
+    try {
+        DB::table('project_purchasings')->where('id', $id)->delete();
+        return response()->json(['message' => 'Purchase record deleted']);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Gagal menghapus data belanja'], 500);
+    }
+}
 }

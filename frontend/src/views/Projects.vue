@@ -165,7 +165,8 @@ const setupForm = ref({
   finish_date: '',
   package: '',
   status: 'Planning',
-  priority: 'Medium'
+  priority: 'Medium',
+  color_code: '#3b82f6'
 });
 
 const allMasterData = ref({
@@ -209,7 +210,6 @@ const cancelEdit = () => {
   editingId.value = null;
   selectedFile.value = null;
   
-  // Isi semua field biar TS gak marah
   setupForm.value = { 
     name: '', 
     icon: 'fas fa-folder',
@@ -218,7 +218,8 @@ const cancelEdit = () => {
     finish_date: '',
     package: '-',
     status: 'Planning',
-    priority: 'Medium'
+    priority: 'Medium',
+    color_code: '#3b82f6' // TAMBAHKAN INI BIAR TS GAK PROTES LAGI
   };
 };
 // @ts-ignore
@@ -267,17 +268,19 @@ const fetchProjects = async () => {
 
 const fetchMasterData = async () => {
   try {
-    const [resCat, resStatus, resPriority, resPackage] = await Promise.all([
+    const [resCat, resStatus, resPriority, resPackage, resColor] = await Promise.all([
       api.get('/work-categories'),
-      api.get('/master-data/status'),   // Pastikan endpoint ini ada di Laravel
-      api.get('/master-data/priority'), // Pastikan endpoint ini ada di Laravel
-      api.get('/master-data/package')   // Pastikan endpoint ini ada di Laravel
+      api.get('/master-data/status'),
+      api.get('/master-data/priority'),
+      api.get('/master-data/package'),
+      api.get('/master-data/color') // Tambahkan endpoint color ini
     ]);
 
     allMasterData.value.categories = resCat.data;
     allMasterData.value.status = resStatus.data;
     allMasterData.value.priority = resPriority.data;
     allMasterData.value.package = resPackage.data;
+    allMasterData.value.color = resColor.data; // Masukkan datanya di sini
 
     console.log("Semua Master Data Berhasil di-sync!");
   } catch (e) {
@@ -292,7 +295,9 @@ const handleSaveMaster = async () => {
   
   // 1. Tambahkan Field Dasar
   formData.append('name', setupForm.value.name);
-  
+  if (setupTab.value === 'color') {
+    formData.append('color_code', setupForm.value.color_code);
+  }
   // 2. Tambahkan Field Detail (Agar tidak kosong lagi di database)
   // Pakai operator || '-' supaya kalau kosong tetap ada isinya di DB
   formData.append('client_name', setupForm.value.client_name || '-');
@@ -677,147 +682,168 @@ watch(currentTab, (newTab) => {
       
     
 
-    <div v-if="currentTab === 'setup'" class="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-  
-  <aside class="w-full md:w-64 flex-none">
-    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm sticky top-4">
-      <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
-        <span class="text-[11px] font-black text-[#2E3A8C] uppercase tracking-widest">Navigation</span>
-      </div>
-      <div class="p-3 space-y-1">
-        <button v-for="menu in [
-          { id: 'status', label: 'Status', icon: 'fas fa-folder' },
-          { id: 'priority', label: 'Priority', icon: 'fas fa-folder' },
-          { id: 'categories', label: 'Category', icon: 'fas fa-folder' },
-          { id: 'package', label: 'Package', icon: 'fas fa-folder' },
-          { id: 'color', label: 'Color', icon: 'fas fa-folder' }
-        ]" :key="menu.id"
-          @click="setupTab = menu.id"
-          class="w-full flex items-center gap-4 px-4 py-3 text-[13px] font-bold rounded-xl transition-all"
-          :class="setupTab === menu.id ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'">
-          <i :class="menu.icon" class="text-slate-400"></i>
-          {{ menu.label }}
-        </button>
-      </div>
-    </div>
-  </aside>
-
-  <main class="flex-1 space-y-6">
-    <div class="bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#2E3A8C]">
-          <i class="fas fa-th-large"></i>
-        </div>
-        <h2 class="text-sm font-black text-[#2E3A8C] uppercase tracking-wider">Works Setup / {{ setupTab }}</h2>
-      </div>
-    </div>
-
-    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all" :class="isEditing ? 'ring-2 ring-amber-100 bg-amber-50/10' : ''">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
-        
-        <div :class="setupTab === 'categories' ? 'lg:col-span-4' : 'lg:col-span-8'" class="space-y-1.5">
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-1">
-            {{ setupTab === 'categories' ? 'Project Title' : setupTab.toUpperCase() + ' NAME' }}
-          </label>
-          <input v-model="setupForm.name" type="text" 
-            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none focus:ring-2 ring-blue-100 shadow-inner"
-            :placeholder="'Enter ' + setupTab + '...'">
-        </div>
-
-        <template v-if="setupTab === 'categories'">
-          <div class="lg:col-span-3 space-y-1.5">
-            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Client Name</label>
-            <input v-model="setupForm.client_name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
+      <div v-if="currentTab === 'setup'" class="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+    
+        <aside class="w-full md:w-64 flex-none">
+          <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm sticky top-4">
+            <div class="bg-slate-50 border-b border-slate-200 px-5 py-4">
+              <span class="text-[11px] font-black text-[#2E3A8C] uppercase tracking-widest">Navigation</span>
+            </div>
+            <div class="p-3 space-y-1">
+              <button v-for="menu in [
+                { id: 'status', label: 'Status', icon: 'fas fa-folder' },
+                { id: 'priority', label: 'Priority', icon: 'fas fa-folder' },
+                { id: 'categories', label: 'Category', icon: 'fas fa-folder' },
+                { id: 'package', label: 'Package', icon: 'fas fa-folder' },
+                { id: 'color', label: 'Color', icon: 'fas fa-folder' }
+              ]" :key="menu.id"
+                @click="setupTab = menu.id"
+                class="w-full flex items-center gap-4 px-4 py-3 text-[13px] font-bold rounded-xl transition-all"
+                :class="setupTab === menu.id ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'">
+                <i :class="menu.icon" class="text-slate-400"></i>
+                {{ menu.label }}
+              </button>
+            </div>
           </div>
+        </aside>
 
-          <div class="lg:col-span-5 space-y-1.5">
-            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Duration (Start - Finish)</label>
-            <div class="flex gap-2">
-              <input v-model="setupForm.start_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
-              <input v-model="setupForm.finish_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+        <main class="flex-1 space-y-6">
+          <div class="bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#2E3A8C]">
+                <i class="fas fa-th-large"></i>
+              </div>
+              <h2 class="text-sm font-black text-[#2E3A8C] uppercase tracking-wider">Works Setup / {{ setupTab }}</h2>
             </div>
           </div>
 
-          <div class="lg:col-span-3 space-y-1.5">
-            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Package Type</label>
-            <select v-model="setupForm.package" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
-              <option value="-">- No Package -</option>
-              <option value="Bronze">Bronze</option>
-              <option value="Silver">Silver</option>
-              <option value="Gold">Gold</option>
-            </select>
-          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all" :class="isEditing ? 'ring-2 ring-amber-100 bg-amber-50/10' : ''">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
+              
+              <div :class="setupTab === 'categories' ? 'lg:col-span-4' : 'lg:col-span-8'" class="space-y-1.5">
+                <label class="text-[9px] font-black text-slate-400 uppercase ml-1">
+                  {{ setupTab === 'categories' ? 'Project Title' : setupTab.toUpperCase() + ' NAME' }}
+                </label>
+                <input v-model="setupForm.name" type="text" 
+                  class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none focus:ring-2 ring-blue-100 shadow-inner"
+                  :placeholder="'Enter ' + setupTab + '...'">
+              </div>
 
-          <div class="lg:col-span-5 space-y-1.5">
-            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Icon & Logo</label>
-            <div class="flex gap-2">
-              <input v-model="setupForm.icon" type="text" class="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none shadow-inner">
-              <label class="w-10 h-10 bg-white border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center cursor-pointer hover:border-blue-400 transition-all flex-none">
-                <input type="file" @change="onFileChange" class="hidden" accept="image/*">
-                <i class="fas fa-image text-slate-400 text-xs"></i>
-              </label>
+              <template v-if="setupTab === 'categories'">
+                <div class="lg:col-span-3 space-y-1.5">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Client Name</label>
+                  <input v-model="setupForm.client_name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
+                </div>
+
+                <div class="lg:col-span-5 space-y-1.5">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Duration (Start - Finish)</label>
+                  <div class="flex gap-2">
+                    <input v-model="setupForm.start_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+                    <input v-model="setupForm.finish_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-2 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+                  </div>
+                </div>
+
+                <div class="lg:col-span-3 space-y-1.5">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Package Type</label>
+                  <select v-model="setupForm.package" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none shadow-inner">
+                    <option value="-">- No Package -</option>
+                    <option value="Bronze">Bronze</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Gold">Gold</option>
+                  </select>
+                </div>
+
+                <div class="lg:col-span-5 space-y-1.5">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Icon & Logo</label>
+                  <div class="flex gap-2">
+                    <input v-model="setupForm.icon" type="text" class="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none shadow-inner">
+                    <label class="w-10 h-10 bg-white border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center cursor-pointer hover:border-blue-400 transition-all flex-none">
+                      <input type="file" @change="onFileChange" class="hidden" accept="image/*">
+                      <i class="fas fa-image text-slate-400 text-xs"></i>
+                    </label>
+                  </div>
+                </div>
+              </template>
+
+              <div class="lg:col-span-4 flex gap-2">
+                <button @click="handleSaveMaster" 
+                  class="flex-1 text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
+                  :class="isEditing ? 'bg-amber-500 shadow-amber-200' : 'bg-[#2E3A8C] shadow-blue-200'">
+                  {{ isEditing ? 'Update' : 'Save' }}
+                </button>
+                <button v-if="isEditing" @click="cancelEdit" class="px-4 py-3 rounded-xl border border-rose-100 bg-rose-50 text-[9px] font-black text-rose-500 uppercase">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </template>
 
-        <div class="lg:col-span-4 flex gap-2">
-          <button @click="handleSaveMaster" 
-            class="flex-1 text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
-            :class="isEditing ? 'bg-amber-500 shadow-amber-200' : 'bg-[#2E3A8C] shadow-blue-200'">
-            {{ isEditing ? 'Update' : 'Save' }}
-          </button>
-          <button v-if="isEditing" @click="cancelEdit" class="px-4 py-3 rounded-xl border border-rose-100 bg-rose-50 text-[9px] font-black text-rose-500 uppercase">
-            Cancel
-          </button>
-        </div>
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
+            <table class="w-full text-left min-w-[600px]">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100">
+                  <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">No</th>
+                  <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {{ setupTab === 'categories' ? 'Project Details' : 'Name / Value' }}
+                  </th>
+                  <th v-if="setupTab === 'categories'" class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client</th>
+                  <template v-if="setupTab === 'color'">
+  <div class="lg:col-span-4 space-y-1.5">
+    <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Pick Color</label>
+    <div class="flex gap-2">
+      <input v-model="setupForm.color_code" type="color" 
+        class="w-10 h-10 border-none bg-transparent cursor-pointer">
+      <input v-model="setupForm.color_code" type="text" 
+        class="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[11px] font-bold outline-none uppercase shadow-inner"
+        placeholder="#000000">
+    </div>
+  </div>
+</template>
+                  <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50">
+                <tr v-for="(item, index) in filteredMasterData" :key="item.id" class="hover:bg-slate-50/40 transition-colors">
+                  <td class="px-8 py-5 text-[12px] font-black text-blue-700">#{{ index + 1 }}</td>
+                  <td class="px-6 py-5">
+                    <div class="flex items-center gap-3">
+                      <div v-if="setupTab === 'color'" 
+                        :style="{ backgroundColor: item.color_code || '#cbd5e1' }" 
+                        class="w-4 h-4 rounded-full shadow-sm border border-white flex-none">
+                      </div>
+                      <div v-if="setupTab === 'categories' && item.image_path" class="w-8 h-8 rounded bg-slate-100 flex-none overflow-hidden">
+                        <img :src="getImageUrl(item.image_path)" class="w-full h-full object-cover">
+                      </div>
+                      <div>
+                      <div class="text-[12px] font-bold text-slate-600 uppercase">{{ item.name }}</div>
+                      <div v-if="setupTab === 'categories'" class="text-[9px] text-slate-400 font-bold uppercase">{{ item.package }} Package</div>
+                      
+                      <div v-if="setupTab === 'color'" class="text-[9px] text-slate-400 font-bold font-mono uppercase">
+                        {{ item.color_code || '-' }}
+                      </div>
+                    </div>
+                    </div>
+                  </td>
+                  <td v-if="setupTab === 'categories'" class="px-6 py-5">
+                    <div class="text-[11px] font-bold text-slate-500 uppercase">{{ item.client_name || '-' }}</div>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button @click="handleEditMaster(item)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-[#2E3A8C] hover:text-white flex items-center justify-center transition-all">
+                        <i class="fas fa-edit text-xs"></i>
+                      </button>
+                      <button @click="handleDeleteMaster(item.id)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-all">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                      </button>
+                    </div>
+                  </td>
+                  
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </main>
       </div>
-    </div>
-
-    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
-      <table class="w-full text-left min-w-[600px]">
-        <thead>
-          <tr class="bg-slate-50 border-b border-slate-100">
-            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">No</th>
-            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {{ setupTab === 'categories' ? 'Project Details' : 'Name / Value' }}
-            </th>
-            <th v-if="setupTab === 'categories'" class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client</th>
-            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-50">
-          <tr v-for="(item, index) in filteredMasterData" :key="item.id" class="hover:bg-slate-50/40 transition-colors">
-            <td class="px-8 py-5 text-[12px] font-black text-blue-700">#{{ index + 1 }}</td>
-            <td class="px-6 py-5">
-              <div class="flex items-center gap-3">
-                <div v-if="setupTab === 'categories' && item.image_path" class="w-8 h-8 rounded bg-slate-100 flex-none overflow-hidden">
-                  <img :src="getImageUrl(item.image_path)" class="w-full h-full object-cover">
-                </div>
-                <div>
-                  <div class="text-[12px] font-bold text-slate-600 uppercase">{{ item.name }}</div>
-                  <div v-if="setupTab === 'categories'" class="text-[9px] text-slate-400 font-bold uppercase">{{ item.package }} Package</div>
-                </div>
-              </div>
-            </td>
-            <td v-if="setupTab === 'categories'" class="px-6 py-5">
-               <div class="text-[11px] font-bold text-slate-500 uppercase">{{ item.client_name || '-' }}</div>
-            </td>
-            <td class="px-6 py-4 text-right">
-              <div class="flex justify-end gap-2">
-                <button @click="handleEditMaster(item)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-[#2E3A8C] hover:text-white flex items-center justify-center transition-all">
-                  <i class="fas fa-edit text-xs"></i>
-                </button>
-                <button @click="handleDeleteMaster(item.id)" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-all">
-                  <i class="fas fa-trash-alt text-xs"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-</div>
 
     </div> </div>
 </template>

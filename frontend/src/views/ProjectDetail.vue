@@ -149,6 +149,650 @@
             </div>
 
             </div>
+          <div v-if="subTab === 'aktivty'" class="space-y-6 animate-in fade-in duration-500">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap lg:flex-nowrap gap-3 items-center shadow-inner">
+                    <input v-model="newTaskName" @keyup.enter="handleAddTask" type="text" placeholder="Task Name..." 
+                    class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black text-slate-700 uppercase outline-none focus:ring-2 ring-blue-100 shadow-sm">
+                    
+                    <div class="relative flex items-center">
+                    <i class="fas fa-tag absolute left-4 text-[10px] text-slate-300"></i>
+                    <input v-model="newTaskCategory" type="text" placeholder="CATEGORY..." 
+                        class="w-32 bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-[10px] font-black text-blue-600 uppercase outline-none focus:ring-2 ring-blue-50 shadow-sm">
+                    </div>
+
+                    <select v-model="newTaskPriority" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase outline-none shadow-sm"
+                    :class="newTaskPriority === 'High' ? 'text-rose-600' : 'text-slate-500'">
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">Urgent</option>
+                    </select>
+
+                    <button @click="handleAddTask" class="bg-blue-800 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-100 hover:scale-95 transition-all">
+                    Add Task
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <div v-if="!project?.tasks?.length" class="py-20 text-center space-y-3 grayscale opacity-30">
+                        <i class="fas fa-clipboard-list text-4xl text-slate-300"></i>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No activities recorded yet</p>
+                    </div>
+
+                    <div v-for="task in project?.tasks" :key="task.id" 
+                    class="group bg-white border border-slate-100 p-4 rounded-2xl flex items-center gap-4 transition-all hover:border-blue-200 hover:shadow-md" 
+                    :class="task.is_completed ? 'bg-slate-50/50' : ''">
+                    
+                    <button @click="handleToggleTask(task)" 
+                        class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all" 
+                        :class="task.is_completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-white text-transparent hover:border-blue-400'">
+                        <i class="fas fa-check text-[10px]"></i>
+                    </button>
+
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[11px] font-black uppercase transition-all" 
+                                :class="task.is_completed ? 'text-slate-300 line-through' : 'text-slate-700'">
+                            {{ task.task_name }}
+                            </span>
+                            
+                            <span class="bg-blue-50 text-blue-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-blue-100 uppercase">
+                            {{ task.task_category || 'GENERAL' }}
+                            </span>
+
+                            <span v-if="task.priority === 'High'" class="bg-rose-100 text-rose-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-rose-200">URGENT</span>
+                        </div>
+                        
+                        <div class="flex gap-3 mt-1">
+                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                <i class="far fa-clock mr-1"></i> {{ formatDate(task.created_at) }}
+                            </span>
+                            <span class="text-[8px] font-bold text-blue-400 uppercase tracking-tighter">
+                                <i class="far fa-user mr-1"></i> Suhery
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button @click="openTaskDetail(task)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center">
+                            <i class="fas fa-expand-alt text-[10px]"></i>
+                        </button>
+                        <button @click="handleDeleteTask(task.id)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </div>
+                    </div>
+                </div>
+
+                <div v-if="project?.tasks?.length" class="pt-6 border-t border-slate-100 flex justify-between items-center">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        Completed: {{ project.tasks.filter((t: any) => t.is_completed).length }} / {{ project.tasks.length }} Tasks
+                    </p>
+                    <div class="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
+                        <div class="bg-emerald-500 h-full transition-all duration-700" :style="{ width: (project?.progress_percent || 0) + '%' }"></div>
+                    </div>
+                </div>
+                <div v-if="showTaskModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-blue-800 text-white flex items-center justify-center text-xs shadow-lg shadow-blue-200">
+                        <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h4 class="text-xs font-black uppercase text-blue-900 tracking-widest">Activity Documentation</h4>
+                    </div>
+                    <button @click="showTaskModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+                        <i class="fas fa-times text-slate-400"></i>
+                    </button>
+                    </div>
+                    
+                    <div class="p-8 space-y-6">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Task Title</label>
+                        <div class="text-[13px] font-black text-slate-800 uppercase px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">{{ activeTask?.task_name }}</div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Documentation / Tech Notes</label>
+                        <textarea v-model="activeTask.description" rows="6" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-blue-50 transition-all"
+                        placeholder="Paste your code snippet or tech notes here..."></textarea>
+                    </div>
+                    </div>
+
+                    <div class="p-6 bg-slate-50 flex gap-3">
+                    <button @click="saveTaskDetail" class="flex-1 bg-blue-800 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200 transition-all active:scale-95">
+                        Update Documentation
+                    </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div v-if="subTab === 'workorder'" class="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner">
+                    <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-blue-800 text-white flex items-center justify-center shadow-lg">
+                        <i class="fas fa-file-signature text-xs"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-[11px] font-black text-slate-800 uppercase tracking-widest">Work Order System</h4>
+                        <p class="text-[8px] font-bold text-slate-400 uppercase">Official Job Instruction & Costing</p>
+                    </div>
+                    </div>
+                    <button @click="openCreateWO" class="bg-blue-800 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:scale-95 transition-all shadow-lg shadow-blue-200">
+                    Create New Order
+                    </button>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/50 border-b border-slate-50">
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">WO Number</th>
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Task Description</th>
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">In Charge</th>
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Budget (IDR)</th>
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        <tr v-if="!project?.work_orders?.length">
+                        <td colspan="6" class="py-20 text-center">
+                            <div class="opacity-20 grayscale flex flex-col items-center">
+                            <i class="fas fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Official Orders Found</p>
+                            </div>
+                        </td>
+                        </tr>
+                        <tr v-for="wo in project?.work_orders" :key="wo.id" class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <span class="text-[10px] font-black text-blue-800 uppercase tracking-tighter">#WO-{{ wo.id }}</span>
+                            <p class="text-[7px] text-slate-400 font-bold uppercase mt-0.5">{{ formatDate(wo.created_at) }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-[11px] font-black text-slate-700 uppercase leading-tight">{{ wo.title }}</p>
+                            <p class="text-[8px] text-slate-400 font-medium line-clamp-1 italic mt-0.5">{{ wo.description || 'No instruction' }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                                <i class="fas fa-user text-[8px] text-slate-400"></i>
+                            </div>
+                            <span class="text-[9px] font-bold text-slate-600 uppercase">{{ wo.pic_name || 'Unassigned' }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <span class="text-[11px] font-black text-emerald-600 tracking-tight">{{ formatCurrency(wo.budget) }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span :class="statusClass(wo.status)" class="px-3 py-1 rounded-lg text-[8px] font-black uppercase border">
+                            {{ wo.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex justify-center gap-2">
+                                <button @click="editWO(wo)" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all">
+                                <i class="fas fa-pencil-alt text-[9px]"></i>
+                                </button>
+                                <button @click="deleteWO(wo.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all">
+                                <i class="fas fa-trash text-[9px]"></i>
+                                </button>
+                            </div>
+                        </td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+                </div>
+
+                <div v-if="showWOModal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h4 class="text-xs font-black uppercase text-blue-900 tracking-widest">Work Order Assignment</h4>
+                    <button @click="showWOModal = false"><i class="fas fa-times text-slate-400"></i></button>
+                    </div>
+                    
+                    <div class="p-8 grid grid-cols-2 gap-6">
+                    <div class="col-span-2 space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase">Instruction Title</label>
+                        <input v-model="woForm.title" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none uppercase">
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase">Assign To (PIC)</label>
+                        <input v-model="woForm.pic_name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none uppercase">
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase">Budget Estimation</label>
+                        <input v-model="woForm.budget" type="number" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold text-emerald-600 outline-none">
+                    </div>
+
+                    <div class="col-span-2 space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase">Detailed Instruction</label>
+                        <textarea v-model="woForm.description" rows="4" class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none uppercase"></textarea>
+                    </div>
+                    </div>
+
+                    <div class="p-6 bg-slate-50 flex gap-3">
+                    <button @click="saveWO" class="flex-1 bg-[#2E3A8C] text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-200">
+                        {{ woForm.id ? 'Update Order' : 'Dispatch Work Order' }}
+                    </button>
+                    </div>
+                </div>
+                </div>
+                
+                <div v-if="subTab === 'teamwork'" class="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+  
+                <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner">
+                    <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+                        <i class="fas fa-users-cog text-xs"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-[11px] font-black text-slate-800 uppercase tracking-widest">Resource Management</h4>
+                        <p class="text-[8px] font-bold text-slate-400 uppercase">Assign & Monitor Team Distribution</p>
+                    </div>
+                    </div>
+                    <button @click="openAddMemberModal" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:scale-95 transition-all shadow-lg shadow-indigo-100">
+                    <i class="fas fa-user-plus mr-2"></i> Add Member
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div v-if="!project?.team?.length" class="col-span-full py-20 text-center opacity-30 grayscale bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <i class="fas fa-user-friends text-4xl mb-3 text-slate-300"></i>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No team members assigned to this project</p>
+                    </div>
+
+                    <div v-for="member in project?.team" :key="member.id" 
+                    class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                    
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm uppercase shadow-inner">
+                            {{ member.name.substring(0, 2) }}
+                        </div>
+                        <div>
+                            <h5 class="text-[12px] font-black text-slate-800 uppercase leading-none">{{ member.name }}</h5>
+                            <span class="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded mt-1.5 inline-block border border-indigo-100">
+                            {{ member.role }}
+                            </span>
+                        </div>
+                        </div>
+                        <button @click="removeMember(member.id)" class="opacity-0 group-hover:opacity-100 transition-all text-slate-300 hover:text-rose-500 p-1">
+                        <i class="fas fa-times-circle text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                        <p class="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Contribution</p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-[11px] font-black text-slate-700">{{ member.tasks_count || 0 }} Tasks</p>
+                        </div>
+                        </div>
+                        <div class="text-right space-y-1">
+                        <p class="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Performance</p>
+                        <span class="text-[9px] font-black text-emerald-500 uppercase italic">On Track</span>
+                        </div>
+                    </div>
+
+                    <button class="w-full mt-4 py-2 rounded-xl bg-slate-50 text-[8px] font-black text-slate-400 uppercase hover:bg-indigo-600 hover:text-white transition-all tracking-widest">
+                        View Performance
+                    </button>
+                    </div>
+                </div>
+                </div>
+
+                <div v-if="showTeamModal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h4 class="text-xs font-black uppercase text-indigo-900 tracking-widest">Assign Member to Project</h4>
+                    <button @click="showTeamModal = false" class="text-slate-400 hover:text-rose-500 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    </div>
+                    
+                    <div class="p-8 space-y-5">
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Select Personnel</label>
+                        <select v-model="teamForm.user_id" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none uppercase shadow-inner">
+                        <option :value="null" disabled>Choose User...</option>
+                        <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Project Role / Job Desk</label>
+                        <input v-model="teamForm.role" type="text" placeholder="e.g. SENIOR DEVELOPER" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none uppercase shadow-inner focus:ring-2 ring-indigo-100 transition-all">
+                    </div>
+                    </div>
+
+                    <div class="p-6 bg-slate-50 flex gap-3">
+                    <button @click="addMember" class="flex-1 bg-indigo-600 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all active:scale-95">
+                        Confirm Assignment
+                    </button>
+                    </div>
+                </div>
+                </div>
+                <div v-if="subTab === 'produks'" class="space-y-6 animate-in fade-in duration-500">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex items-center gap-3 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                            <i class="fas fa-box-open text-xs"></i>
+                        </div>
+                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Submit Deliverable</h4>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input v-model="prodForm.title" type="text" placeholder="PRODUCT TITLE (E.G. STAGING URL)" 
+                            class="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-100 uppercase">
+                        
+                        <select v-model="prodForm.type" class="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                            <option value="Link">Web Link / URL</option>
+                            <option value="Credentials">Credentials / Login</option>
+                            <option value="File">File Path / Drive</option>
+                            <option value="Server">Server Access</option>
+                        </select>
+
+                        <input v-model="prodForm.version" type="text" placeholder="VERSION (E.G. 1.0.1)" 
+                            class="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                        </div>
+
+                        <textarea v-model="prodForm.content" placeholder="CONTENT OR URL..." 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-emerald-50 uppercase" rows="2"></textarea>
+
+                        <button @click="handleSaveProduction" class="w-full bg-emerald-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all">
+                        Save Production Output
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div v-for="prod in project?.productions" :key="prod.id" 
+                        class="bg-white border border-slate-100 p-5 rounded-3xl flex items-start gap-4 hover:shadow-md transition-all relative group">
+                        
+                        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner text-lg"
+                            :class="prod.type === 'Link' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'">
+                            <i :class="prod.type === 'Link' ? 'fas fa-link' : 'fas fa-key'"></i>
+                        </div>
+
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                            <h5 class="text-[11px] font-black text-slate-800 uppercase truncate">{{ prod.title }}</h5>
+                            <span class="text-[7px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">v{{ prod.version }}</span>
+                            </div>
+                            <p class="text-[10px] font-mono text-blue-600 truncate mt-1 bg-blue-50/50 p-1 rounded">{{ prod.content }}</p>
+                            
+                            <div class="mt-3 flex items-center gap-3">
+                            <span class="text-[8px] font-bold text-slate-400 uppercase">
+                                <i class="fas fa-user-circle mr-1"></i> {{ prod.user_name || 'System' }}
+                            </span>
+                            <span class="text-[8px] font-bold text-slate-400 uppercase">
+                                <i class="far fa-calendar-alt mr-1"></i> {{ formatDate(prod.created_at) }}
+                            </span>
+                            </div>
+                        </div>
+
+                        <button @click="handleDeleteProduction(prod.id)" class="opacity-0 group-hover:opacity-100 absolute top-4 right-4 text-rose-300 hover:text-rose-500">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        </div>
+                    </div>
+                </div>  
+                <div v-if="subTab === 'document'" class="space-y-6 animate-in fade-in duration-500">
+  
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                    <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                        <i class="fas fa-file-upload text-xs"></i>
+                    </div>
+                    <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Upload Project Document</h4>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Document Title</label>
+                        <input v-model="docForm.title" type="text" placeholder="E.G. SURAT KONTRAK / FSD" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Select File</label>
+                        <input type="file" @change="handleFileChange" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-[10px] font-bold outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                    </div>
+
+                    <button @click="uploadDoc" :disabled="loadingDoc" class="w-full bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-100 hover:scale-[0.98] transition-all disabled:opacity-50">
+                    {{ loadingDoc ? 'UPLOADING...' : 'SAVE DOCUMENT' }}
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div v-for="doc in project?.documents" :key="doc.id" 
+                    class="bg-white border border-slate-100 p-4 rounded-3xl text-center hover:shadow-md transition-all group relative">
+                    
+                    <div class="w-16 h-16 mx-auto mb-3 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl text-slate-400 group-hover:scale-110 transition-transform">
+                        <i v-if="doc.file_type === 'pdf'" class="fas fa-file-pdf text-rose-500"></i>
+                        <i v-else-if="['doc', 'docx'].includes(doc.file_type)" class="fas fa-file-word text-blue-500"></i>
+                        <i v-else-if="['jpg', 'jpeg', 'png'].includes(doc.file_type)" class="fas fa-file-image text-emerald-500"></i>
+                        <i v-else class="fas fa-file text-slate-300"></i>
+                    </div>
+
+                    <h5 class="text-[10px] font-black text-slate-800 uppercase truncate px-2">{{ doc.title }}</h5>
+                    <p class="text-[8px] font-bold text-slate-400 uppercase mt-1">{{ doc.file_type }} • {{ (doc.file_size / 1024 / 1024).toFixed(2) }} MB</p>
+                    
+                    <div class="mt-4 flex gap-2">
+                        <a :href="'/uploads/' + doc.file_path" target="_blank" class="flex-1 bg-slate-50 py-1.5 rounded-lg text-[8px] font-black text-slate-500 uppercase hover:bg-blue-600 hover:text-white transition-colors">Open</a>
+                        <button @click="deleteDoc(doc.id)" class="bg-slate-50 px-2 rounded-lg text-slate-300 hover:text-rose-500"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                    </div>
+                    </div>
+                </div>
+                </div>
+                <div v-if="subTab === 'support'" class="space-y-6 animate-in fade-in duration-500">
+  
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                        <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-100">
+                            <i class="fas fa-headset text-xs"></i>
+                        </div>
+                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">New Support Ticket</h4>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <input v-model="supportForm.subject" type="text" placeholder="ISSUE SUBJECT (E.G. LOGIN ERROR)" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner">
+                        </div>
+                        <select v-model="supportForm.priority" class="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                            <option value="Low">Low Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="High">High Priority</option>
+                            <option value="Urgent">Urgent / Critical</option>
+                        </select>
+                        </div>
+
+                        <textarea v-model="supportForm.message" placeholder="DESCRIBE THE ISSUE IN DETAIL..." 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-rose-50 uppercase mb-4" rows="3"></textarea>
+
+                        <button @click="handleSaveSupport" class="w-full bg-rose-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-100 hover:scale-[0.98] transition-all">
+                        Open Support Ticket
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div v-for="ticket in project?.supports" :key="ticket.id" 
+                        class="bg-white border border-slate-100 p-5 rounded-3xl flex items-center gap-4 hover:border-rose-200 transition-all group shadow-sm">
+                        
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-sm shadow-inner"
+                            :class="ticket.status === 'Resolved' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'">
+                            <i :class="ticket.status === 'Resolved' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+                        </div>
+
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                            <h5 class="text-[11px] font-black text-slate-800 uppercase truncate">{{ ticket.subject }}</h5>
+                            <span :class="priorityColor(ticket.priority)" class="text-[7px] font-black px-1.5 py-0.5 rounded border uppercase">
+                                {{ ticket.priority }}
+                            </span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 truncate mt-1 lowercase">{{ ticket.message }}</p>
+                        </div>
+
+                        <div class="text-right flex flex-col items-end gap-2">
+                            <select @change="updateTicketStatus(ticket.id, $event)" 
+                            class="text-[9px] font-black uppercase bg-slate-100 border-none rounded-lg px-2 py-1 outline-none">
+                            <option :selected="ticket.status === 'Open'" value="Open">Open</option>
+                            <option :selected="ticket.status === 'In-Progress'" value="In-Progress">In-Progress</option>
+                            <option :selected="ticket.status === 'Resolved'" value="Resolved">Resolved</option>
+                            </select>
+                            <span class="text-[8px] font-bold text-slate-300 uppercase italic">{{ formatDate(ticket.created_at) }}</span>
+                        </div>
+                        </div>
+                    </div>
+                    </div>
+                 <div v-if="subTab === 'marketing'" class="space-y-6 animate-in fade-in duration-500">
+                    
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                        <div class="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-100">
+                            <i class="fas fa-bullhorn text-xs"></i>
+                        </div>
+                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">New Marketing Opportunity</h4>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div class="md:col-span-1">
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Opportunity Title</label>
+                            <input v-model="marketForm.title" type="text" placeholder="E.G. ADD MOBILE APP" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label>
+                            <select v-model="marketForm.type" class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                            <option value="Upselling">Upselling</option>
+                            <option value="New Feature">New Feature</option>
+                            <option value="Maintenance">Maintenance Contract</option>
+                            <option value="Testimonial">Testimonial Request</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Next Follow Up</label>
+                            <input v-model="marketForm.next_follow_up" type="date" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                        </div>
+                        </div>
+
+                        <textarea v-model="marketForm.notes" placeholder="STRATEGY NOTES..." 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-orange-50 uppercase mb-4" rows="2"></textarea>
+
+                        <button @click="handleSaveMarketing" class="w-full bg-orange-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 hover:scale-[0.98] transition-all">
+                        Create Opportunity
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div v-for="item in project?.marketings" :key="item.id" 
+                        class="bg-white border border-slate-100 p-5 rounded-3xl flex flex-col gap-3 hover:shadow-md transition-all relative group">
+                        
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                                <i class="fas fa-rocket text-sm"></i>
+                            </div>
+                            <div>
+                                <h5 class="text-[11px] font-black text-slate-800 uppercase">{{ item.title }}</h5>
+                                <span class="text-[8px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 uppercase">
+                                {{ item.type }}
+                                </span>
+                            </div>
+                            </div>
+                            <span class="text-[8px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase">
+                            {{ item.status }}
+                            </span>
+                        </div>
+
+                        <div class="mt-2 text-[10px] text-slate-500 font-medium bg-slate-50/50 p-3 rounded-xl lowercase">
+                            {{ item.notes }}
+                        </div>
+
+                        <div class="flex justify-between items-center mt-2 pt-2 border-t border-slate-50">
+                            <div class="flex flex-col">
+                            <span class="text-[7px] font-black text-slate-400 uppercase">Next Contact</span>
+                            <span class="text-[9px] font-black text-slate-700">{{ item.next_follow_up || '-' }}</span>
+                            </div>
+                            <button @click="handleDeleteMarketing(item.id)" class="opacity-0 group-hover:opacity-100 text-rose-300 hover:text-rose-500 transition-all">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+                    </div>   
+               <div v-if="subTab === 'purchasing'" class="space-y-6 animate-in fade-in duration-500">
+  
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
+                        <i class="fas fa-shopping-cart text-xs"></i>
+                    </div>
+                    <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Add Purchase Record</h4>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div class="md:col-span-2">
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Item / Service Name</label>
+                        <input v-model="purchaseForm.item_name" type="text" placeholder="E.G. SERVER CLOUD / LICENSE" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Price</label>
+                        <input v-model="purchaseForm.amount" type="number" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label>
+                        <input v-model="purchaseForm.quantity" type="number" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                    </div>
+                    </div>
+
+                    <button @click="handleSavePurchase" class="w-full bg-emerald-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all">
+                    Save Transaction
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50">
+                        <tr>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Item</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Total</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Status</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        <tr v-for="item in project?.purchasings" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
+                        <td class="p-4 text-[11px] font-bold text-slate-800 uppercase">{{ item.item_name }}</td>
+                        <td class="p-4 text-[11px] font-black text-slate-700 italic">Rp {{ Number(item.total_price).toLocaleString() }}</td>
+                        <td class="p-4">
+                            <span class="text-[8px] font-black px-2 py-1 rounded bg-blue-50 text-blue-600 uppercase border border-blue-100">{{ item.status }}</span>
+                        </td>
+                        <td class="p-4">
+                            <button @click="handleDeletePurchase(item.id)" class="text-rose-300 hover:text-rose-500 transition-all">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                            </button>
+                        </td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+                </div>     
+          <div v-if="['financial', 'teamwork', 'document'].includes(subTab)" class="py-20 text-center text-slate-300">
+             <i class="fas fa-tools text-4xl mb-4"></i>
+             <p class="text-[10px] font-black uppercase tracking-widest">Section {{ subTab }} is under development</p>
+          </div>
         </div>
       </div>
 
@@ -227,7 +871,395 @@ const updateDetail = async () => {
     console.error("Gagal memperbarui laporan detail", e);
   }
 };
+// bagian aktivity
+// State Management untuk Aktivty
+const newTaskName = ref('');
+const newTaskCategory = ref('GENERAL'); // Default kategori
+const newTaskPriority = ref('Medium');
+const showTaskModal = ref(false);
+const activeTask = ref<any>(null);
 
+// Fungsi Tambah Task
+const handleAddTask = async () => {
+  if (!newTaskName.value) return;
+  try {
+    await api.post('/project-tasks', {
+      project_id: route.params.id,
+      task_name: newTaskName.value,
+      task_category: newTaskCategory.value.toUpperCase(),
+      priority: newTaskPriority.value
+    });
+    newTaskName.value = ''; // Reset nama task saja, kategori biar tetep kalau mau input banyak sekaligus
+    await fetchDetail();
+  } catch (e) {
+    console.error("Gagal simpan task", e);
+  }
+};
+
+// Fungsi Buka Modal Detail
+const openTaskDetail = (task: any) => {
+  activeTask.value = { ...task }; // Clone data agar tidak ngerubah list sebelum disave
+  showTaskModal.value = true;
+};
+
+// Fungsi Update Deskripsi Task (Documentation)
+const saveTaskDetail = async () => {
+  try {
+    // Kita buat endpoint PUT di Laravel nanti
+    await api.put(`/project-tasks/${activeTask.value.id}`, {
+      description: activeTask.value.description
+    });
+    showTaskModal.value = false;
+    await fetchDetail(); // Refresh agar deskripsi terbaru masuk ke project object
+    alert("Documentation Updated!");
+  } catch (e) {
+    console.error(e);
+    alert("Gagal update dokumentasi");
+  }
+};
+
+
+// 2. Toggle Status Selesai / Belum
+const handleToggleTask = async (task: any) => {
+  try {
+    await api.put(`/project-tasks/${task.id}/toggle`);
+    // Refresh data untuk update progress_percent project secara otomatis
+    await fetchDetail();
+  } catch (e) {
+    console.error("Gagal update status task", e);
+  }
+};
+
+// 3. Hapus Task
+const handleDeleteTask = async (taskId: number) => {
+  if (!confirm('Hapus aktivitas ini?')) return;
+  try {
+    // Pastikan kamu punya route delete ini di Laravel
+    await api.delete(`/project-tasks/${taskId}`);
+    await fetchDetail();
+  } catch (e) {
+    console.error("Gagal hapus task", e);
+  }
+};
+
+// Modifikasi formatDate agar lebih rapi (opsional)
+const formatDate = (dateStr: any) => {
+  if (!dateStr) return 'Recently';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+const showWOModal = ref(false);
+const woForm = ref({
+  id: null as number | null,
+  title: '',
+  pic_name: '',
+  budget: 0,
+  description: '',
+  status: 'Draft'
+});
+
+const openCreateWO = () => {
+  woForm.value = { id: null, title: '', pic_name: 'SUHERY', budget: 0, description: '', status: 'Draft' };
+  showWOModal.value = true;
+};
+
+const saveWO = async () => {
+  try {
+    const payload = { ...woForm.value, project_id: route.params.id };
+    if (woForm.value.id) {
+      await api.put(`/work-orders/${woForm.value.id}`, payload);
+    } else {
+      await api.post('/work-orders', payload);
+    }
+    showWOModal.value = false;
+    await fetchDetail(); // Harus update API backend agar project juga load work_orders
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+};
+
+const statusClass = (status: string) => {
+  switch (status) {
+    case 'Draft': return 'bg-slate-100 text-slate-500 border-slate-200';
+    case 'Sent': return 'bg-blue-50 text-blue-600 border-blue-100';
+    case 'Done': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    default: return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+};
+const editWO = (wo: any) => {
+  woForm.value = { 
+    id: wo.id,
+    title: wo.title,
+    pic_name: wo.pic_name,
+    budget: wo.budget,
+    description: wo.description,
+    status: wo.status
+  };
+  showWOModal.value = true;
+};
+
+// Fungsi untuk menghapus Workorder
+const deleteWO = async (id: number) => {
+  if (!confirm('Apakah anda yakin ingin menghapus Work Order ini?')) return;
+  try {
+    await api.delete(`/work-orders/${id}`);
+    await fetchDetail(); // Refresh data agar list WO terbaru muncul
+    console.log("Workorder Deleted");
+  } catch (e) {
+    console.error("Gagal menghapus WO", e);
+    alert("Gagal menghapus Work Order");
+  }
+};
+const showTeamModal = ref(false);
+const allUsers = ref<any[]>([]);
+const teamForm = ref({
+  user_id: null,
+  role: ''
+});
+
+// Load list semua user di sistem untuk dipilih di modal
+const openAddMemberModal = async () => {
+  try {
+    const res = await api.get('/users'); // Ambil dari API User kamu
+    allUsers.value = res.data;
+    showTeamModal.value = true;
+  } catch (e) {
+    console.error("Gagal load users", e);
+    alert("Check connection to user database");
+  }
+};
+
+const addMember = async () => {
+  if (!teamForm.value.user_id || !teamForm.value.role) return;
+  try {
+    await api.post(`/projects/${route.params.id}/team`, teamForm.value);
+    showTeamModal.value = false;
+    teamForm.value = { user_id: null, role: '' };
+    await fetchDetail(); // Refresh data utama project
+  } catch (e) {
+    alert("User sudah ada di project atau terjadi error");
+  }
+};
+
+const removeMember = async (userId: number) => {
+  if(!confirm('Keluarkan anggota ini dari project?')) return;
+  try {
+    await api.delete(`/projects/${route.params.id}/team/${userId}`);
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+const prodForm = ref({
+  title: '',
+  type: 'Link',
+  version: '1.0.0',
+  content: ''
+});
+
+const handleSaveProduction = async () => {
+  if (!prodForm.value.title || !prodForm.value.content) return alert("Title and Content are required!");
+  try {
+    await api.post('/project-productions', {
+      project_id: route.params.id,
+      ...prodForm.value
+    });
+    // Reset Form
+    prodForm.value = { title: '', type: 'Link', version: '1.0.0', content: '' };
+    // Refresh Data
+    await fetchDetail();
+    alert("Production data saved!");
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const handleDeleteProduction = async (id: number) => {
+  if (!confirm('Delete this production output?')) return;
+  try {
+    await api.delete(`/project-productions/${id}`);
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+// State untuk Document
+const docForm = ref({ title: '', file: null as File | null });
+const loadingDoc = ref(false);
+
+// Fungsi untuk menangkap file dari input
+const handleFileChange = (e: any) => {
+  docForm.value.file = e.target.files[0];
+};
+
+// Fungsi Upload (Save) Document
+const uploadDoc = async () => {
+  if (!docForm.value.title || !docForm.value.file) {
+    alert("Harap isi Judul dan Pilih File!");
+    return;
+  }
+  
+  loadingDoc.value = true;
+  const formData = new FormData();
+  formData.append('project_id', route.params.id as string);
+  formData.append('title', docForm.value.title);
+  formData.append('file', docForm.value.file);
+
+  try {
+    await api.post('/project-documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    // Reset form setelah berhasil
+    docForm.value = { title: '', file: null };
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput) fileInput.value = ''; // Reset input file fisiknya
+    
+    await fetchDetail(); // Refresh data utama
+    console.log("Document Uploaded!");
+  } catch (e) {
+    console.error("Gagal upload", e);
+    alert("Gagal mengunggah dokumen");
+  } finally {
+    loadingDoc.value = false;
+  }
+};
+
+// FUNGSI DELETE DOC (Ini yang bikin error tadi)
+const deleteDoc = async (id: number) => {
+  if (!confirm('Hapus dokumen ini secara permanen?')) return;
+  try {
+    await api.delete(`/project-documents/${id}`);
+    await fetchDetail(); // Refresh list agar dokumen yang dihapus hilang
+    console.log("Document Deleted");
+  } catch (e) {
+    console.error("Gagal hapus doc", e);
+    alert("Gagal menghapus dokumen");
+  }
+};
+const supportForm = ref({ subject: '', priority: 'Medium', message: '' });
+
+const handleSaveSupport = async () => {
+  if (!supportForm.value.subject || !supportForm.value.message) return alert("Please fill all fields");
+  try {
+    await api.post('/project-supports', {
+      project_id: route.params.id,
+      ...supportForm.value
+    });
+    supportForm.value = { subject: '', priority: 'Medium', message: '' };
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const updateTicketStatus = async (id: number, event: any) => {
+  try {
+    await api.put(`/project-supports/${id}/status`, { status: event.target.value });
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const priorityColor = (p: string) => {
+  if (p === 'Urgent') return 'bg-rose-100 text-rose-600 border-rose-200';
+  if (p === 'High') return 'bg-amber-100 text-amber-600 border-amber-200';
+  return 'bg-blue-100 text-blue-600 border-blue-200';
+};
+// --- STATE MARKETING ---
+const marketForm = ref({
+  title: '',
+  type: 'Upselling',
+  next_follow_up: '',
+  notes: '',
+  budget_estimate: 0
+});
+
+// Fungsi Simpan Opportunity Marketing
+const handleSaveMarketing = async () => {
+  // Validasi simpel
+  if (!marketForm.value.title) return alert("Opportunity Title harus diisi!");
+
+  try {
+    await api.post('/project-marketings', {
+      project_id: route.params.id,
+      ...marketForm.value
+    });
+
+    // Reset Form setelah sukses
+    marketForm.value = {
+      title: '',
+      type: 'Upselling',
+      next_follow_up: '',
+      notes: '',
+      budget_estimate: 0
+    };
+
+    // Refresh data utama agar list marketing muncul di bawah
+    await fetchDetail();
+    console.log("Marketing Opportunity Saved!");
+  } catch (e) {
+    console.error("Gagal simpan marketing", e);
+    alert("Gagal menyimpan data marketing");
+  }
+};
+
+// Fungsi Hapus Opportunity Marketing
+const handleDeleteMarketing = async (id: number) => {
+  if (!confirm('Hapus data marketing ini?')) return;
+  try {
+    await api.delete(`/project-marketings/${id}`);
+    await fetchDetail(); // Refresh list
+    console.log("Marketing Deleted");
+  } catch (e) {
+    console.error(e);
+  }
+};
+const purchaseForm = ref({
+  item_name: '',
+  vendor_name: '',
+  amount: 0,
+  quantity: 1,
+  purchase_date: '',
+  notes: ''
+});
+
+const handleSavePurchase = async () => {
+  if (!purchaseForm.value.item_name || purchaseForm.value.amount <= 0) return alert("Isi Item dan Harga!");
+  try {
+    await api.post('/project-purchasings', {
+      project_id: route.params.id,
+      ...purchaseForm.value
+    });
+    purchaseForm.value = { item_name: '', vendor_name: '', amount: 0, quantity: 1, purchase_date: '', notes: '' };
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+const calculateTotalExpenses = () => {
+  // Hitung pengeluaran dari Work Orders
+  const woTotal = project.value?.work_orders?.reduce((t: number, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
+  
+  // Hitung pengeluaran dari Purchasing (Belanja)
+  const purchaseTotal = project.value?.purchasings?.reduce((t: number, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
+  
+  return woTotal + purchaseTotal;
+};
+const handleDeletePurchase = async (id: number) => {
+  if (!confirm('Hapus catatan belanja?')) return;
+  try {
+    await api.delete(`/project-purchasings/${id}`);
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
 onMounted(async () => {
   await fetchMaster();
   await fetchDetail();

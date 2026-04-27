@@ -278,11 +278,13 @@ class ProjectController extends Controller
                     $data['icon'] = $request->icon;
                 }
                 
-                if ($request->hasFile('image')) {
+               if ($request->hasFile('image')) {
                     $file = $request->file('image');
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $file->move(public_path('uploads/logos'), $filename);
-                    $data['image_path'] = 'uploads/logos/' . $filename;
+                    $path = $file->store('categories', 'public_uploads'); 
+                    
+                    // CUKUP SIMPAN $path SAJA! 
+                    // Hasilnya nanti cuma: "categories/nama_file.jpg"
+                    $data['image_path'] = $path; 
                 }
             }
 

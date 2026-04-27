@@ -166,10 +166,11 @@ const project = ref<any>({
   description: ''
 });
 
+// Tambahkan interface atau gunakan 'any' supaya TypeScript gak marah
 const masterData = ref({
-  status: [],
-  priority: [],
-  package: []
+  status: [] as any[],    // Tambahkan 'as any[]'
+  priority: [] as any[],  // Tambahkan 'as any[]'
+  package: [] as any[]    // Tambahkan 'as any[]'
 });
 
 const fetchMaster = async () => {

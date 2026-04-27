@@ -221,6 +221,7 @@ const cancelEdit = () => {
     priority: 'Medium'
   };
 };
+// @ts-ignore
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '28 Jan, 12.30 AM'; // Fallback sesuai figma
   const date = new Date(dateStr);

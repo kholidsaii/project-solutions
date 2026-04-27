@@ -31,7 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- ANALYTICS ---
     Route::get('/works/stats', [ProjectController::class, 'getStats']);
     Route::get('/reports/all', [ProjectController::class, 'getAllReports']); // Untuk Assessment/Reports.vue
+    Route::post('/master-data/{type}', [ProjectController::class, 'storeMaster']);
     Route::put('/master-data/{type}/{id}', [ProjectController::class, 'updateMaster']);
     Route::delete('/master-data/{type}/{id}', [ProjectController::class, 'deleteMaster']);
-    Route::post('/master-data/{type}', [ProjectController::class, 'storeMaster']);
 });

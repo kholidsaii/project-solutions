@@ -115,10 +115,20 @@ const viewProjectDetail = (id: number | string) => {
   router.push(`/projects/${id}`);
 };
 const getImageUrl = (path: string | null): string | undefined => {
-  debugger
-  if (!path) return undefined; // Ganti null jadi undefined
+  if (!path) return undefined;
   if (path.startsWith('data:') || path.startsWith('http')) return path;
-  return `${import.meta.env.VITE_API_BASE_URL}/${path}`;
+
+  // Kita ambil 'http://localhost:8000/api' dari .env kamu
+  const apiUrl = import.meta.env.VITE_API_URL; 
+  
+  // Kita buang '/api' di ujungnya biar jadi 'http://localhost:8000'
+  const baseUrl = apiUrl.replace('/api', '');
+
+  // Bersihkan path dari double slash atau prefix uploads
+  let cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  debugger
+  // Gabungkan: http://localhost:8000 + / + uploads/categories/xxx.jpg
+  return `${baseUrl}/${cleanPath}`;
 };
 // ==========================================
 // 4. TAB: SETUP (Master Data Management)

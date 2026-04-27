@@ -652,8 +652,9 @@ watch(currentTab, (newTab) => {
 
               <div class="w-full lg:w-auto flex-none">
                 <button @click="handleSaveMaster" 
-                  class="w-full lg:w-48 bg-blue-600 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95">
-                  Save Data
+                  class="w-full lg:w-48 text-white px-8 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95"
+                  :class="isEditing ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'">
+                  {{ isEditing ? 'Update Data' : 'Save Data' }}
                 </button>
               </div>
 

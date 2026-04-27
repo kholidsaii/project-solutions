@@ -3,76 +3,95 @@ import { computed } from 'vue';
 import VueApexCharts from "vue3-apexcharts";
 import type { ApexOptions } from 'apexcharts';
 
-// Kita tambahkan tipe custom agar TypeScript tidak komplain
 const props = defineProps<{
   seriesData: any[],
   chartType: 'bar' | 'donut' | 'bar-priority' | 'donut-mini',
   height?: number,
-  title?: string
+  title?: string,
+  labels?: string[];
 }>();
 
 const chartOptions = computed<ApexOptions>(() => {
   const baseOptions: ApexOptions = {
     chart: { 
       toolbar: { show: false }, 
-      fontFamily: 'Inter, sans-serif',
-      // Tambahkan ini supaya chart tidak goyang saat render
-      animations: { enabled: true, speed: 800 }
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      // Hapus 'easing' di sini untuk memperbaiki error TS2353
+      animations: { 
+        enabled: true, 
+        speed: 1000 
+      },
+      background: 'transparent'
     },
-    colors: ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ef4444'],
+    stroke: { show: true, width: 2, colors: ['transparent'] },
     dataLabels: { enabled: false },
-    legend: { show: false } // Kita pakai legend manual di HTML
+    legend: { show: false },
+    tooltip: {
+      theme: 'light',
+      y: { formatter: (val) => `${val} Items` }
+    }
   };
 
-  // --- 1. LOGIKA BAR PRIORITY (WARNA WARNI) ---
   if (props.chartType === 'bar-priority') {
     return {
       ...baseOptions,
       plotOptions: {
         bar: {
           distributed: true, 
-          columnWidth: '45%',
-          borderRadius: 4,
+          columnWidth: '55%',
+          borderRadius: 8,
+          dataLabels: { position: 'top' }
         }
       },
-      colors: ['#EF4444', '#FBBF24', '#10B981', '#0000FF', '#22D3EE'],
+      colors: ['#EF4444', '#FBBF24', '#10B981', '#6366F1', '#22D3EE'],
       xaxis: {
-        // Label bertumpuk (Array di dalam Array)
-        categories: [['Urgent', '800'], ['High', '50'], ['Medium', '130'], ['Low', '150'], ['Planned', '210']],
+        categories: [['Urgent'], ['High'], ['Medium'], ['Low'], ['Planned']],
         labels: {
           style: {
-            fontSize: '11px',
+            fontSize: '10px',
             fontWeight: 800,
-            colors: ['#EF4444', '#FBBF24', '#10B981', '#0000FF', '#22D3EE']
+            colors: ['#EF4444', '#FBBF24', '#10B981', '#6366F1', '#22D3EE']
           }
         },
         axisBorder: { show: false },
         axisTicks: { show: false }
       },
-      yaxis: { show: true, labels: { style: { colors: '#94a3b8' } } },
       grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
     };
   }
 
-  // --- 2. LOGIKA DONUT MINI (DENGAN TOTAL DI TENGAH) ---
-  if (props.chartType === 'donut-mini' || props.chartType === 'donut') {
+  if (props.chartType === 'donut' || props.chartType === 'donut-mini') {
     return {
       ...baseOptions,
-      labels: ['Retail', 'Project', 'Wabku', 'SPJ', 'Maintenance'],
-      stroke: { width: 0 },
+      colors: ['#6366F1', '#22D3EE', '#10B981', '#F59E0B', '#EF4444'],
+      // Ambil label dari props agar sinkron dengan data filter di sidebar
+      labels: props.labels || ['Retail', 'Project', 'Wabku', 'SPJ', 'Maintenance'],
       plotOptions: {
         pie: {
           donut: {
-            size: '72%',
+            size: '75%',
             labels: {
               show: true,
               total: {
                 show: true,
-                label: '100%',
-                formatter: () => '1.420',
-                fontSize: '14px',
+                label: 'TOTAL',
+                fontSize: '10px',
+                fontWeight: 800,
+                color: '#94a3b8',
+                formatter: (w: any) => {
+                  const total = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
+                  return total.toString(); // Harus string Lid!
+                }
+              },
+              value: {
+                fontSize: '22px',
                 fontWeight: 900,
-                color: '#2E3A8C'
+                color: '#1e293b',
+                offsetY: 5,
+                // PAKSA JADI STRING (Fix Error 2769)
+                formatter: (val: string | number) => {
+                  return typeof val === 'number' ? val.toString() : val;
+                }
               }
             }
           }
@@ -81,26 +100,9 @@ const chartOptions = computed<ApexOptions>(() => {
     };
   }
 
-  // --- 3. LOGIKA BAR STANDAR (BULANAN) ---
-  return {
-    ...baseOptions,
-    plotOptions: { 
-      bar: { 
-        columnWidth: '40%', 
-        borderRadius: 3,
-        colors: { backgroundBarColors: ['#f8fafc'], backgroundBarOpacity: 1 } 
-      } 
-    },
-    xaxis: {
-      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
-      labels: { style: { fontSize: '10px', fontWeight: 600, colors: '#94a3b8' } },
-      axisBorder: { show: false }
-    },
-    grid: { show: true, borderColor: '#f1f5f9', yaxis: { lines: { show: true } } }
-  };
+  return baseOptions;
 });
 
-// Helper untuk menentukan tipe chart asli bagi ApexCharts
 const getRealChartType = computed(() => {
   if (props.chartType === 'bar-priority') return 'bar';
   if (props.chartType === 'donut-mini') return 'donut';
@@ -109,19 +111,30 @@ const getRealChartType = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-full flex flex-col justify-between">
-    <div v-if="title" class="flex items-center gap-2 mb-4">
-      <i class="fas fa-th-large text-[#2E3A8C] text-[10px]"></i>
-      <h3 class="text-[12px] font-black text-[#2E3A8C] uppercase tracking-wider">{{ title }}</h3>
+  <div class="group relative flex h-full flex-col overflow-hidden rounded-4xl border border-slate-100 bg-white p-6 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] transition-all duration-500 hover:shadow-[0_20px_50px_-20px_rgba(99,102,241,0.15)]">
+    
+    <div class="absolute top-0 left-0 h-1 w-full bg-linear-to-r from-transparent via-indigo-500/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+
+    <div v-if="title" class="mb-6 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="h-6 w-2 rounded-full bg-indigo-500"></div>
+        <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-700">
+          {{ title }}
+        </h3>
+      </div>
+      <div class="flex gap-1">
+        <div class="h-1.5 w-1.5 rounded-full bg-slate-200"></div>
+        <div class="h-1.5 w-1.5 rounded-full bg-slate-200"></div>
+      </div>
     </div>
 
-    <div class="flex-1 flex items-center justify-center">
+    <div class="relative flex flex-1 items-center justify-center min-h-55">
       <VueApexCharts 
         :type="getRealChartType" 
-        :height="height || 300" 
+        :height="height || 280" 
         :options="chartOptions" 
         :series="seriesData" 
-        class="w-full"
+        class="w-full transition-transform duration-500 group-hover:scale-[1.02]"
       />
     </div>
   </div>

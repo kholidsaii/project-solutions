@@ -37,7 +37,13 @@ return [
             'throw' => false,
             'report' => false,
         ],
-
+        'public_uploads' => [
+            'driver' => 'local',
+            'root' => public_path('uploads'), // Ini akan simpan di folder public/uploads
+            'url' => env('APP_URL').'/uploads',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

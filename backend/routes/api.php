@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\ProjectController;
 use Illuminate\Support\Facades\Route;
+use Termwind\Components\Raw;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -30,4 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- ANALYTICS ---
     Route::get('/works/stats', [ProjectController::class, 'getStats']);
     Route::get('/reports/all', [ProjectController::class, 'getAllReports']); // Untuk Assessment/Reports.vue
+    Route::put('/master-data/{type}/{id}', [ProjectController::class, 'updateMaster']);
+    Route::delete('/master-data/{type}/{id}', [ProjectController::class, 'deleteMaster']);
+    Route::post('/master-data/{type}', [ProjectController::class, 'storeMaster']);
 });

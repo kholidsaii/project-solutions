@@ -46,3 +46,4 @@ script: |
             php artisan optimize:clear
             
             echo "🚀 Project Solutions Berhasil di-Deploy!"
+          

@@ -5,47 +5,56 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use Carbon\Carbon;
 class ProjectController extends Controller
 {
-   public function index()
-{
-    try {
-        $projects = DB::table('projects')
-            ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->select(
-                'projects.*', 
-                'work_categories.name as category',
-                // DI POSTGRES CUKUP PAKAI PENGURANGAN LANGSUNG
-                DB::raw("(finish_date - start_date) as total_day") 
-            )
-            ->orderBy('projects.created_at', 'desc')
-            ->get();
-
-        // Mapping data tetap sama seperti sebelumnya
-        $formatted = $projects->map(function($p) {
-            return [
-                'id' => $p->id,
-                'project_title' => $p->project_title,
-                'client_name' => $p->client_name,
-                'start_date' => $p->start_date ? \Carbon\Carbon::parse($p->start_date)->format('d F Y') : '-',
-                'finish_date' => $p->finish_date ? \Carbon\Carbon::parse($p->finish_date)->format('d F Y') : '-',
-                'total_day' => ($p->total_day ?? 0) . ' Day',
-                'category' => $p->category,
-                'status' => $p->status,
-                'priority' => $p->priority,
-                'package' => $p->package ?? '-',
-                'logo' => $p->logo,
-                'progress' => $p->progress_percent,
-                'color' => $p->status == 'Finish' ? 'bg-emerald-500' : 'bg-blue-600'
-            ];
-        });
-
-        return response()->json($formatted, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
+    private function getTableName($type)
+    {
+        return match($type) {
+            'categories' => 'work_categories',
+            'status'     => 'work_statuses',
+            'priority'   => 'work_priorities',
+            'package'    => 'work_packages',
+            default      => null
+        };
     }
-}
+   public function index()
+    {
+        try {
+            $projects = DB::table('projects')
+                ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
+                ->select(
+                    'projects.*', 
+                    'work_categories.name as category_name',
+                    'work_categories.image_path as category_logo', // AMBIL LOGO DI SINI
+                    DB::raw("(finish_date - start_date) as total_day_diff") 
+                )
+                ->orderBy('projects.created_at', 'desc')
+                ->get();
+
+            $formatted = $projects->map(function($p) {
+                return [
+                    'id' => $p->id,
+                    'project_title' => $p->project_title,
+                    'client_name' => $p->client_name ?? '-',
+                    'start_date' => $p->start_date ? Carbon::parse($p->start_date)->format('d F Y') : '-',
+                    'finish_date' => $p->finish_date ? Carbon::parse($p->finish_date)->format('d F Y') : '-',
+                    'total_day' => ($p->total_day_diff ?? 0) . ' Day',
+                    'category' => $p->category_name,
+                    'logo' => $p->category_logo ? 'uploads/' . $p->category_logo : null,// Logo sekarang terisi path (misal: categories/abc.jpg)
+                    'status' => $p->status,
+                    'priority' => $p->priority,
+                    'package' => $p->package ?? '-',
+                    'progress' => $p->progress_percent,
+                    'color' => $p->status == 'Finish' ? 'bg-emerald-500' : 'bg-blue-600'
+                ];
+            });
+
+            return response()->json($formatted, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 
     public function store(Request $request)
     {
@@ -190,60 +199,107 @@ class ProjectController extends Controller
     }
 
    public function getAllReports()
-{
-    try {
-        $reports = DB::table('projects')
-            ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->select(
-                'projects.id',
-                // Ambil project_title dan kirim sebagai client_name ke Vue
-                'projects.project_title as client_name', 
-                'work_categories.name as category',
-                'projects.progress_percent as score',
-                DB::raw("CASE 
-                    WHEN projects.progress_percent = 100 THEN 'COMPLETED' 
-                    WHEN projects.progress_percent > 0 THEN 'ON TRACK' 
-                    ELSE 'PLANNING' 
-                END as status"),
-                DB::raw("TO_CHAR(projects.created_at, 'DD/MM/YYYY') as date")
-            )
-            ->orderBy('projects.created_at', 'desc')
-            ->get();
+    {
+        try {
+            $reports = DB::table('projects')
+                ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
+                ->select(
+                    'projects.id',
+                    // Ambil project_title dan kirim sebagai client_name ke Vue
+                    'projects.project_title as client_name', 
+                    'work_categories.name as category',
+                    'projects.progress_percent as score',
+                    DB::raw("CASE 
+                        WHEN projects.progress_percent = 100 THEN 'COMPLETED' 
+                        WHEN projects.progress_percent > 0 THEN 'ON TRACK' 
+                        ELSE 'PLANNING' 
+                    END as status"),
+                    DB::raw("TO_CHAR(projects.created_at, 'DD/MM/YYYY') as date")
+                )
+                ->orderBy('projects.created_at', 'desc')
+                ->get();
 
-        return response()->json($reports, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json($reports, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
-}
-// Tambahkan di ProjectController.php
 
-public function getMasterData()
-{
-    return response()->json([
-        'categories' => DB::table('work_categories')->get(),
-        'statuses'   => DB::table('work_statuses')->get(),
-        'priorities' => DB::table('work_priorities')->get(),
-        'packages'   => DB::table('work_packages')->get(),
-    ]);
-}
+    public function getMasterData()
+    {
+        return response()->json([
+            'categories' => DB::table('work_categories')->get(),
+            'statuses'   => DB::table('work_statuses')->get(),
+            'priorities' => DB::table('work_priorities')->get(),
+            'packages'   => DB::table('work_packages')->get(),
+        ]);
+    }
 
-public function storeMaster(Request $request, $type)
-{
-    $table = match($type) {
-        'categories' => 'work_categories',
-        'status'     => 'work_statuses',
-        'priority'   => 'work_priorities',
-        'package'    => 'work_packages',
-        default      => null
-    };
+    public function storeMaster(Request $request, $type)
+    {
+        $table = $this->getTableName($type);
+        
+        $data = [
+            'name' => $request->name,
+            'created_at' => now()
+        ];
 
-    if (!$table) return response()->json(['message' => 'Invalid type'], 400);
+        if ($type === 'categories' && $request->hasFile('image')) {
+            $file = $request->file('image');
+            
+            // Simpan di folder: public/uploads/categories
+            // Laravel otomatis kasih nama unik
+            $path = $file->store('categories', 'public_uploads'); 
+            
+            $data['image_path'] = $path; // Simpan path-nya saja: "categories/nama_file.jpg"
+        }
 
-    DB::table($table)->insert([
-        'name' => $request->name,
-        'created_at' => now()
-    ]);
+        DB::table($table)->insert($data);
+        return response()->json(['message' => 'Saved!']);
+    }
+    public function updateMaster(Request $request, $type, $id)
+    {
+        // Sekarang $this->getTableName sudah ada, jadi tidak akan undefined lagi
+        $table = $this->getTableName($type);
+        
+        if (!$table) {
+            return response()->json(['message' => 'Tipe master data tidak valid'], 400);
+        }
 
-    return response()->json(['message' => 'Data saved successfully']);
-}
+        try {
+            $data = [
+                'name'       => $request->name,
+                'updated_at' => now()
+            ];
+
+            // Khusus kategori kalau ada icon atau image
+            if ($type === 'categories') {
+                if ($request->has('icon')) {
+                    $data['icon'] = $request->icon;
+                }
+                
+                if ($request->hasFile('image')) {
+                    $file = $request->file('image');
+                    $filename = time() . '_' . $file->getClientOriginalName();
+                    $file->move(public_path('uploads/logos'), $filename);
+                    $data['image_path'] = 'uploads/logos/' . $filename;
+                }
+            }
+
+            DB::table($table)->where('id', $id)->update($data);
+
+            return response()->json(['message' => 'Data berhasil diupdate!'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    public function destroy($id)
+    {
+        try {
+            DB::table('projects')->where('id', $id)->delete();
+            return response()->json(['message' => 'Project berhasil dihapus!'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus project'], 500);
+        }
+    }
 }

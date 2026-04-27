@@ -19,6 +19,11 @@ const routes = [
   { path: '/documents', name: 'Documents', component: () => import('../views/Documents.vue'), meta: { requiresAuth: true } },
   { path: '/support', name: 'Support', component: () => import('../views/Support.vue'), meta: { requiresAuth: true } },
   { path: '/reports', name: 'Reports', component: () => import('../views/Reports.vue'), meta: { requiresAuth: true } },
+  {
+      path: '/projects/:id',
+      name: 'project-detail',
+      component: () => import('../views/ProjectDetail.vue') // Kita buat file baru nanti
+    },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true, role: 'super_admin' } },
   { path: '/logs', name: 'AuditLogs', component: () => import('../views/Logs.vue'), meta: { requiresAuth: true, role: 'super_admin' } },
 ];

@@ -126,7 +126,7 @@ const getImageUrl = (path: string | null): string | undefined => {
 
   // Bersihkan path dari double slash atau prefix uploads
   let cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  debugger
+  console.log("Cleaned Image Path:", cleanPath); // Debug: Lihat path yang sudah dibersihkan
   // Gabungkan: http://localhost:8000 + / + uploads/categories/xxx.jpg
   return `${baseUrl}/${cleanPath}`;
 };
@@ -215,26 +215,46 @@ const fetchMasterData = async () => {
 };
 
 const handleSaveMaster = async () => {
+  if (!setupForm.value.name) return alert("Nama wajib diisi!");
+
   const formData = new FormData();
   formData.append('name', setupForm.value.name);
   
   if (setupTab.value === 'categories') {
-    formData.append('icon', setupForm.value.icon);
-    // Kirim file aslinya, bukan base64
+    formData.append('icon', setupForm.value.icon || 'fas fa-folder');
     if (selectedFile.value) {
       formData.append('image', selectedFile.value);
     }
   }
 
   try {
-    // Kirim ke API
-    await api.post(`/master-data/${setupTab.value}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    alert("Berhasil!");
-    fetchMasterData();
-  } catch (e) {
-    alert("Gagal!");
+    let url = `/master-data/${setupTab.value}`;
+    
+    if (isEditing.value && editingId.value) {
+      // UNTUK UPDATE:
+      url = `/master-data/${setupTab.value}/${editingId.value}`;
+      
+      // Trik Laravel: Gunakan POST tapi selipkan _method PUT
+      // Karena multipart/form-data sering gagal kalau pakai method PUT asli
+      formData.append('_method', 'PUT');
+      
+      await api.post(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert("Data berhasil diupdate!");
+    } else {
+      // UNTUK TAMBAH BARU:
+      await api.post(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert("Data berhasil disimpan!");
+    }
+
+    cancelEdit();
+    fetchMasterData(); // Refresh list
+  } catch (e: any) {
+    console.error(e);
+    alert("Gagal memproses data: " + (e.response?.data?.message || e.message));
   }
 };
 

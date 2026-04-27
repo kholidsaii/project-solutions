@@ -26,8 +26,8 @@ script: |
             
             # 3. FRONTEND BUILD
             cd frontend
+            git pull
             # Gunakan jalur lengkap jika npm masih command not found
-            npm install
             npm run build
             
             # 4. SYNC TO LARAVEL PUBLIC
@@ -36,6 +36,7 @@ script: |
             
             # 5. BACKEND SETUP
             cd ../backend
+            git pull
             mkdir -p storage/framework/{sessions,views,cache}
             chmod -R 775 storage bootstrap/cache
             

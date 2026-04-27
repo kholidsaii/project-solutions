@@ -730,7 +730,7 @@
                     </div>
                     </div>   
                <div v-if="subTab === 'purchasing'" class="space-y-6 animate-in fade-in duration-500">
-  
+                
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                     <div class="flex items-center gap-3 mb-6">
                     <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
@@ -743,52 +743,80 @@
                     <div class="md:col-span-2">
                         <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Item / Service Name</label>
                         <input v-model="purchaseForm.item_name" type="text" placeholder="E.G. SERVER CLOUD / LICENSE" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner focus:ring-2 ring-emerald-50">
                     </div>
                     <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Price</label>
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Price (Unit)</label>
                         <input v-model="purchaseForm.amount" type="number" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
                     </div>
                     <div>
                         <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label>
                         <input v-model="purchaseForm.quantity" type="number" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
                     </div>
                     </div>
 
-                    <button @click="handleSavePurchase" class="w-full bg-emerald-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all">
+                    <button @click="handleSavePurchase" class="w-full bg-emerald-600 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all active:scale-95">
                     Save Transaction
                     </button>
                 </div>
 
                 <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
                     <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50">
+                    <thead class="bg-slate-50/80">
                         <tr>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Item</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Total</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Status</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase">Action</th>
+                        <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Description</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Price x Qty</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Total Amount</th>
+                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                        <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
-                        <tr v-for="item in project?.purchasings" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
-                        <td class="p-4 text-[11px] font-bold text-slate-800 uppercase">{{ item.item_name }}</td>
-                        <td class="p-4 text-[11px] font-black text-slate-700 italic">Rp {{ Number(item.total_price).toLocaleString() }}</td>
-                        <td class="p-4">
-                            <span class="text-[8px] font-black px-2 py-1 rounded bg-blue-50 text-blue-600 uppercase border border-blue-100">{{ item.status }}</span>
+                        <tr v-if="!project?.purchasings?.length">
+                        <td colspan="5" class="py-12 text-center">
+                            <div class="opacity-20 grayscale flex flex-col items-center">
+                            <i class="fas fa-receipt text-3xl mb-2 text-slate-300"></i>
+                            <p class="text-[9px] font-black text-slate-400 uppercase">No purchase records found</p>
+                            </div>
                         </td>
-                        <td class="p-4">
-                            <button @click="handleDeletePurchase(item.id)" class="text-rose-300 hover:text-rose-500 transition-all">
+                        </tr>
+                        <tr v-for="item in project?.purchasings" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
+                        <td class="p-4 px-6">
+                            <p class="text-[11px] font-black text-slate-800 uppercase">{{ item.item_name }}</p>
+                            <p class="text-[8px] font-bold text-slate-400 uppercase">{{ formatDate(item.purchase_date) }}</p>
+                        </td>
+                        <td class="p-4 text-[10px] font-bold text-slate-500">
+                            {{ formatCurrency(item.amount) }} x {{ item.quantity }}
+                        </td>
+                        <td class="p-4 text-right">
+                            <p class="text-[11px] font-black text-rose-600 italic">{{ formatCurrency(item.total_price) }}</p>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="text-[8px] font-black px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 uppercase border border-emerald-100 shadow-sm">
+                            {{ item.status || 'PAID' }}
+                            </span>
+                        </td>
+                        <td class="p-4 px-6 text-center">
+                            <button @click="handleDeletePurchase(item.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center mx-auto">
                             <i class="fas fa-trash-alt text-[10px]"></i>
                             </button>
                         </td>
                         </tr>
                     </tbody>
+                    <tfoot v-if="project?.purchasings?.length" class="bg-slate-50/30">
+                        <tr>
+                        <td colspan="2" class="p-4 px-6 text-[9px] font-black text-slate-500 uppercase">Subtotal Purchasing</td>
+                        <td class="p-4 text-right text-[11px] font-black text-slate-900 border-t border-slate-100">
+                            {{ formatCurrency(project.purchasings.reduce((t: any, p: any) => t + parseFloat(p.total_price), 0)) }}
+                        </td>
+                        <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
                     </table>
                 </div>
-                </div>     
+                </div>   
           <div v-if="['financial', 'teamwork', 'document'].includes(subTab)" class="py-20 text-center text-slate-300">
              <i class="fas fa-tools text-4xl mb-4"></i>
              <p class="text-[10px] font-black uppercase tracking-widest">Section {{ subTab }} is under development</p>
@@ -1242,12 +1270,13 @@ const handleSavePurchase = async () => {
     console.error(e);
   }
 };
+// Tambahkan : any pada parameter arrow function agar TS tidak komplain
 const calculateTotalExpenses = () => {
   // Hitung pengeluaran dari Work Orders
-  const woTotal = project.value?.work_orders?.reduce((t: number, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
+  const woTotal = project.value?.work_orders?.reduce((t: any, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
   
-  // Hitung pengeluaran dari Purchasing (Belanja)
-  const purchaseTotal = project.value?.purchasings?.reduce((t: number, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
+  // Hitung pengeluaran dari Purchasing
+  const purchaseTotal = project.value?.purchasings?.reduce((t: any, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
   
   return woTotal + purchaseTotal;
 };

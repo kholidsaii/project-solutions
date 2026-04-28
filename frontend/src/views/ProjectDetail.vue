@@ -731,92 +731,253 @@
                     </div>   
                <div v-if="subTab === 'purchasing'" class="space-y-6 animate-in fade-in duration-500">
                 
-                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <div class="flex items-center gap-3 mb-6">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
-                        <i class="fas fa-shopping-cart text-xs"></i>
-                    </div>
-                    <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Add Purchase Record</h4>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-100">
+                            <i class="fas fa-shopping-cart text-xs"></i>
+                        </div>
+                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Add Purchase Record</h4>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Item / Service Name</label>
+                            <input v-model="purchaseForm.item_name" type="text" placeholder="E.G. SERVER CLOUD / LICENSE" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner focus:ring-2 ring-emerald-50">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Price (Unit)</label>
+                            <input v-model="purchaseForm.amount" type="number" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label>
+                            <input v-model="purchaseForm.quantity" type="number" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
+                        </div>
+                        </div>
+
+                        <button @click="handleSavePurchase" class="w-full bg-emerald-600 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all active:scale-95">
+                        Save Transaction
+                        </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div class="md:col-span-2">
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Item / Service Name</label>
-                        <input v-model="purchaseForm.item_name" type="text" placeholder="E.G. SERVER CLOUD / LICENSE" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase shadow-inner focus:ring-2 ring-emerald-50">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Price (Unit)</label>
-                        <input v-model="purchaseForm.amount" type="number" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label>
-                        <input v-model="purchaseForm.quantity" type="number" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:ring-2 ring-emerald-50">
-                    </div>
-                    </div>
-
-                    <button @click="handleSavePurchase" class="w-full bg-emerald-600 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all active:scale-95">
-                    Save Transaction
-                    </button>
-                </div>
-
-                <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                    <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50/80">
-                        <tr>
-                        <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Description</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Price x Qty</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Total Amount</th>
-                        <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                        <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        <tr v-if="!project?.purchasings?.length">
-                        <td colspan="5" class="py-12 text-center">
-                            <div class="opacity-20 grayscale flex flex-col items-center">
-                            <i class="fas fa-receipt text-3xl mb-2 text-slate-300"></i>
-                            <p class="text-[9px] font-black text-slate-400 uppercase">No purchase records found</p>
+                    <div class="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                        <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50/80">
+                            <tr>
+                            <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Description</th>
+                            <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Price x Qty</th>
+                            <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Total Amount</th>
+                            <th class="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                            <th class="p-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            <tr v-if="!project?.purchasings?.length">
+                            <td colspan="5" class="py-12 text-center">
+                                <div class="opacity-20 grayscale flex flex-col items-center">
+                                <i class="fas fa-receipt text-3xl mb-2 text-slate-300"></i>
+                                <p class="text-[9px] font-black text-slate-400 uppercase">No purchase records found</p>
+                                </div>
+                            </td>
+                            </tr>
+                            <tr v-for="item in project?.purchasings" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
+                            <td class="p-4 px-6">
+                                <p class="text-[11px] font-black text-slate-800 uppercase">{{ item.item_name }}</p>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase">{{ formatDate(item.purchase_date) }}</p>
+                            </td>
+                            <td class="p-4 text-[10px] font-bold text-slate-500">
+                                {{ formatCurrency(item.amount) }} x {{ item.quantity }}
+                            </td>
+                            <td class="p-4 text-right">
+                                <p class="text-[11px] font-black text-rose-600 italic">{{ formatCurrency(item.total_price) }}</p>
+                            </td>
+                            <td class="p-4 text-center">
+                                <span class="text-[8px] font-black px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 uppercase border border-emerald-100 shadow-sm">
+                                {{ item.status || 'PAID' }}
+                                </span>
+                            </td>
+                            <td class="p-4 px-6 text-center">
+                                <button @click="handleDeletePurchase(item.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center mx-auto">
+                                <i class="fas fa-trash-alt text-[10px]"></i>
+                                </button>
+                            </td>
+                            </tr>
+                        </tbody>
+                        <tfoot v-if="project?.purchasings?.length" class="bg-slate-50/30">
+                            <tr>
+                            <td colspan="2" class="p-4 px-6 text-[9px] font-black text-slate-500 uppercase">Subtotal Purchasing</td>
+                            <td class="p-4 text-right text-[11px] font-black text-slate-900 border-t border-slate-100">
+                                {{ formatCurrency(project.purchasings.reduce((t: any, p: any) => t + parseFloat(p.total_price), 0)) }}
+                            </td>
+                            <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                        </table>
+                        <div class="mt-6 bg-rose-50 border border-rose-100 p-6 rounded-3xl flex justify-between items-center shadow-inner">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-rose-500 shadow-sm">
+                                <i class="fas fa-calculator"></i>
+                                </div>
+                                <div>
+                                <h5 class="text-[10px] font-black text-rose-900 uppercase tracking-widest">Total Project Spending</h5>
+                                <p class="text-[8px] font-bold text-rose-400 uppercase leading-none">Accumulated from Workorders & Purchasing</p>
+                                </div>
                             </div>
-                        </td>
-                        </tr>
-                        <tr v-for="item in project?.purchasings" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
-                        <td class="p-4 px-6">
-                            <p class="text-[11px] font-black text-slate-800 uppercase">{{ item.item_name }}</p>
-                            <p class="text-[8px] font-bold text-slate-400 uppercase">{{ formatDate(item.purchase_date) }}</p>
-                        </td>
-                        <td class="p-4 text-[10px] font-bold text-slate-500">
-                            {{ formatCurrency(item.amount) }} x {{ item.quantity }}
-                        </td>
-                        <td class="p-4 text-right">
-                            <p class="text-[11px] font-black text-rose-600 italic">{{ formatCurrency(item.total_price) }}</p>
-                        </td>
-                        <td class="p-4 text-center">
-                            <span class="text-[8px] font-black px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 uppercase border border-emerald-100 shadow-sm">
-                            {{ item.status || 'PAID' }}
-                            </span>
-                        </td>
-                        <td class="p-4 px-6 text-center">
-                            <button @click="handleDeletePurchase(item.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center mx-auto">
-                            <i class="fas fa-trash-alt text-[10px]"></i>
-                            </button>
-                        </td>
-                        </tr>
-                    </tbody>
-                    <tfoot v-if="project?.purchasings?.length" class="bg-slate-50/30">
-                        <tr>
-                        <td colspan="2" class="p-4 px-6 text-[9px] font-black text-slate-500 uppercase">Subtotal Purchasing</td>
-                        <td class="p-4 text-right text-[11px] font-black text-slate-900 border-t border-slate-100">
-                            {{ formatCurrency(project.purchasings.reduce((t: any, p: any) => t + parseFloat(p.total_price), 0)) }}
-                        </td>
-                        <td colspan="2"></td>
-                        </tr>
-                    </tfoot>
-                    </table>
-                </div>
+                            <div class="text-right">
+                                <span class="text-lg font-black text-rose-600 italic">
+                                {{ formatCurrency(calculateTotalExpenses()) }}
+                                </span>
+                            </div>
+                            </div>
+                    </div>
                 </div>   
+                <div v-if="subTab === 'financial'" class="space-y-8 animate-in fade-in zoom-in duration-500">
+  
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 text-slate-50 opacity-10 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-hand-holding-usd text-8xl"></i>
+                        </div>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Revenue</p>
+                        <h3 class="text-2xl font-black text-indigo-900">{{ formatCurrency(project?.contract_value) }}</h3>
+                        <div class="mt-4 flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase italic">
+                            <i class="fas fa-file-contract"></i> Initial Contract Value
+                        </div>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Operational Cost</p>
+                        <h3 class="text-2xl font-black text-rose-600">{{ formatCurrency(calculateTotalExpenses()) }}</h3>
+                        <div class="mt-4 flex items-center gap-2 text-[10px] font-black text-rose-400 uppercase italic">
+                            <i class="fas fa-receipt"></i> WO + Purchasing
+                        </div>
+                        </div>
+
+                        <div class="p-6 rounded-3xl shadow-lg shadow-emerald-100 border border-emerald-400 relative overflow-hidden group"
+                            :class="calculateMargin() > 0 ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
+                            
+                            <p class="text-[9px] font-black opacity-80 uppercase tracking-widest mb-1 text-white">Estimated Net Profit</p>
+                            
+                            <h3 class="text-2xl font-black">
+                                {{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}
+                            </h3>
+                            
+                            <div class="mt-4 flex items-center gap-2 text-[10px] font-black uppercase italic">
+                                <i class="fas fa-chart-line"></i> 
+                                Margin: {{ calculateMargin().toFixed(1) }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+                        <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Financial Breakdown Analysis</h4>
+                        <div class="flex gap-2">
+                            <span class="text-[8px] font-black px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-500 uppercase">Automated Report</span>
+                        </div>
+                        </div>
+                        <div class="p-0">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                            <tr class="bg-slate-50/30 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <th class="p-6">Transaction Detail</th>
+                                <th class="p-6">Module Source</th>
+                                <th class="p-6">PIC / Vendor</th>
+                                <th class="p-6 text-right">Amount</th>
+                            </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                            <tr v-for="wo in project?.work_orders" :key="'wo-'+wo.id" class="text-[11px] font-bold text-slate-600">
+                                <td class="p-6"><i class="fas fa-tools mr-2 text-blue-400"></i> {{ wo.title }}</td>
+                                <td class="p-6 uppercase text-slate-400">Workorder</td>
+                                <td class="p-6 uppercase">{{ wo.pic_name }}</td>
+                                <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(wo.budget) }}</td>
+                            </tr>
+                            <tr v-for="p in project?.purchasings" :key="'p-'+p.id" class="text-[11px] font-bold text-slate-600">
+                                <td class="p-6"><i class="fas fa-shopping-cart mr-2 text-emerald-400"></i> {{ p.item_name }}</td>
+                                <td class="p-6 uppercase text-slate-400">Purchasing</td>
+                                <td class="p-6 uppercase">{{ p.vendor_name || 'General Vendor' }}</td>
+                                <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(p.total_price) }}</td>
+                            </tr>
+                            </tbody>
+                            <tfoot>
+                            <tr class="bg-slate-900 text-white font-black">
+                                <td colspan="3" class="p-6 text-[10px] uppercase tracking-widest">Total Project Burn Rate</td>
+                                <td class="p-6 text-right text-sm italic">{{ formatCurrency(calculateTotalExpenses()) }}</td>
+                            </tr>
+                            </tfoot>
+                        </table>
+                        </div>
+                    </div>
+                    </div>
+                    <div v-if="subTab === 'accounting'" class="space-y-6 animate-in fade-in duration-500">
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-100">
+      <p class="text-[9px] font-black opacity-70 uppercase tracking-widest">Total Collected (Uang Masuk)</p>
+      <h3 class="text-2xl font-black">{{ formatCurrency(calculateTotalInvoiced('Paid')) }}</h3>
+    </div>
+    <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outstanding (Sisa Tagihan)</p>
+      <h3 class="text-2xl font-black text-rose-500">{{ formatCurrency(calculateTotalInvoiced('Unpaid')) }}</h3>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+        <i class="fas fa-file-invoice-dollar text-xs"></i>
+      </div>
+      <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Generate New Invoice</h4>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <input v-model="invForm.title" type="text" placeholder="INVOICE TITLE (E.G. TERMIN 1)" 
+        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+      <input v-model="invForm.amount" type="number" placeholder="AMOUNT" 
+        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+      <input v-model="invForm.due_date" type="date" 
+        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+    </div>
+
+    <button @click="handleSaveInvoice" class="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[0.98] transition-all">
+      Generate & Send Invoice
+    </button>
+  </div>
+
+  <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+    <table class="w-full text-left">
+      <thead class="bg-slate-50">
+        <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+          <th class="p-4 px-6">Invoice #</th>
+          <th class="p-4">Description</th>
+          <th class="p-4 text-right">Amount</th>
+          <th class="p-4 text-center">Status</th>
+          <th class="p-4 px-6 text-center">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        <tr v-for="inv in project?.invoices" :key="inv.id" class="hover:bg-slate-50/50">
+          <td class="p-4 px-6 font-mono text-[10px] text-indigo-600">{{ inv.invoice_number }}</td>
+          <td class="p-4 font-bold text-[11px] text-slate-700 uppercase">{{ inv.title }}</td>
+          <td class="p-4 text-right font-black text-slate-900">{{ formatCurrency(inv.amount) }}</td>
+          <td class="p-4 text-center">
+            <span :class="inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" 
+              class="text-[8px] font-black px-2 py-1 rounded uppercase border">
+              {{ inv.status }}
+            </span>
+          </td>
+          <td class="p-4 px-6 text-center">
+            <button v-if="inv.status !== 'Paid'" @click="updateInvStatus(inv.id, 'Paid')" 
+              class="text-[9px] font-black text-emerald-500 hover:underline uppercase">Mark as Paid</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
           <div v-if="['financial', 'teamwork', 'document'].includes(subTab)" class="py-20 text-center text-slate-300">
              <i class="fas fa-tools text-4xl mb-4"></i>
              <p class="text-[10px] font-black uppercase tracking-widest">Section {{ subTab }} is under development</p>
@@ -1270,20 +1431,77 @@ const handleSavePurchase = async () => {
     console.error(e);
   }
 };
-// Tambahkan : any pada parameter arrow function agar TS tidak komplain
-const calculateTotalExpenses = () => {
-  // Hitung pengeluaran dari Work Orders
-  const woTotal = project.value?.work_orders?.reduce((t: any, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
-  
-  // Hitung pengeluaran dari Purchasing
-  const purchaseTotal = project.value?.purchasings?.reduce((t: any, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
-  
-  return woTotal + purchaseTotal;
-};
+
 const handleDeletePurchase = async (id: number) => {
   if (!confirm('Hapus catatan belanja?')) return;
   try {
     await api.delete(`/project-purchasings/${id}`);
+    await fetchDetail();
+  } catch (e) {
+    console.error(e);
+  }
+};
+// --- STATE & FORM UNTUK ACCOUNTING ---
+const invForm = ref({
+  title: '',
+  amount: 0,
+  due_date: ''
+});
+
+// --- LOGIC FINANCIAL (AGREGASI DATA) ---
+
+// 1. Menghitung Total Pengeluaran (Workorder + Purchasing)
+const calculateTotalExpenses = () => {
+  const woTotal = project.value?.work_orders?.reduce((t: any, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
+  const purchaseTotal = project.value?.purchasings?.reduce((t: any, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
+  return woTotal + purchaseTotal;
+};
+
+// 2. Menghitung Margin Keuntungan dalam Persen
+// Di bagian <script setup>
+const calculateMargin = () => {
+  const revenue = parseFloat(project.value?.contract_value || 0);
+  const expenses = calculateTotalExpenses();
+  if (revenue === 0) return 0;
+  
+  // Jangan pakai .toFixed(1) di sini agar return-nya tetap Number
+  return ((revenue - expenses) / revenue * 100);
+};
+
+// --- LOGIC ACCOUNTING (INVOICING) ---
+
+// 3. Menghitung Total Invoice Berdasarkan Status (Paid / Unpaid)
+const calculateTotalInvoiced = (status: string) => {
+  if (!project.value?.invoices) return 0;
+  return project.value.invoices
+    .filter((inv: any) => inv.status === status)
+    .reduce((t: any, inv: any) => t + parseFloat(inv.amount || 0), 0);
+};
+
+// 4. Menyimpan Invoice Baru
+const handleSaveInvoice = async () => {
+  if (!invForm.value.title || invForm.value.amount <= 0) {
+    alert("Harap isi Judul dan Nominal Invoice!");
+    return;
+  }
+  try {
+    await api.post('/project-invoices', {
+      project_id: route.params.id,
+      ...invForm.value
+    });
+    // Reset Form
+    invForm.value = { title: '', amount: 0, due_date: '' };
+    await fetchDetail(); // Refresh data utama
+    alert("Invoice berhasil dibuat!");
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+// 5. Update Status Pembayaran (Mark as Paid)
+const updateInvStatus = async (id: number, status: string) => {
+  try {
+    await api.put(`/project-invoices/${id}/status`, { status });
     await fetchDetail();
   } catch (e) {
     console.error(e);

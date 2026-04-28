@@ -88,62 +88,91 @@ class ProjectController extends Controller
     }
 
     public function show($id)
-    {
-        $project = DB::table('projects')
-            ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->select('projects.*', 'work_categories.name as category_name', 'work_categories.image_path as logo')
-            ->where('projects.id', $id)
-            ->first();
+{
+    // 1. Ambil Data Utama Project & Kategori
+    $project = DB::table('projects')
+        ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
+        ->select('projects.*', 'work_categories.name as category_name', 'work_categories.image_path as logo')
+        ->where('projects.id', $id)
+        ->first();
 
-        if (!$project) return response()->json(['message' => 'Project tidak ditemukan'], 404);
+    if (!$project) {
+        return response()->json(['message' => 'Project tidak ditemukan'], 404);
+    }
 
-        // Load Team
-        $project->team = DB::table('project_teams')
-            ->join('users', 'project_teams.user_id', '=', 'users.id')
-            ->where('project_teams.project_id', $id)
-            ->select('users.id', 'users.name', 'project_teams.role')
-            ->get();
-
-        foreach ($project->team as $member) {
-            $member->tasks_count = DB::table('project_tasks')
-                ->where('project_id', $id)
-                ->where('assigned_to', $member->id)
-                ->count();
-        }
-
-        // Load Tasks
-        $project->tasks = DB::table('project_tasks')->where('project_id', $id)->orderBy('id', 'asc')->get();
-
-        // Load Work Orders
-        $project->work_orders = DB::table('work_orders')->where('project_id', $id)->orderBy('id', 'desc')->get();
-        $project->documents = DB::table('project_documents')
-        ->leftJoin('users', 'project_documents.user_id', '=', 'users.id')
-        ->where('project_documents.project_id', $id)
-        ->select('project_documents.*', 'users.name as uploader_name')
-        ->orderBy('project_documents.created_at', 'desc')
+    // 2. Load Team & Hitung Kontribusi Task per Member (Relasi Aktivty)
+    $project->team = DB::table('project_teams')
+        ->join('users', 'project_teams.user_id', '=', 'users.id')
+        ->where('project_teams.project_id', $id)
+        ->select('users.id', 'users.name', 'project_teams.role')
         ->get();
-        $project->marketings = DB::table('project_marketings')
-        ->leftJoin('users', 'project_marketings.user_id', '=', 'users.id')
-        ->where('project_marketings.project_id', $id)
-        ->select('project_marketings.*', 'users.name as marketer_name')
-        ->orderBy('project_marketings.created_at', 'desc')
+
+    foreach ($project->team as $member) {
+        $member->tasks_count = DB::table('project_tasks')
+            ->where('project_id', $id)
+            ->where('assigned_to', $member->id)
+            ->count();
+    }
+
+    // 3. Load Aktivty (Tasks)
+    $project->tasks = DB::table('project_tasks')
+        ->where('project_id', $id)
+        ->orderBy('id', 'asc')
         ->get();
-        // LOAD PRODUCTIONS (LENGKAP DENGAN NAMA USER)
-        $project->productions = DB::table('project_productions')
-            ->leftJoin('users', 'project_productions.user_id', '=', 'users.id')
-            ->where('project_productions.project_id', $id)
-            ->select('project_productions.*', 'users.name as user_name')
-            ->orderBy('project_productions.created_at', 'desc')
-            ->get();
-        $project->purchasings = DB::table('project_purchasings')
+
+    // 4. Load Work Orders (Financial Source A)
+    $project->work_orders = DB::table('work_orders')
+        ->where('project_id', $id)
+        ->orderBy('id', 'desc')
+        ->get();
+
+    // 5. Load Purchasing (Financial Source B)
+    $project->purchasings = DB::table('project_purchasings')
         ->leftJoin('users', 'project_purchasings.user_id', '=', 'users.id')
         ->where('project_purchasings.project_id', $id)
         ->select('project_purchasings.*', 'users.name as buyer_name')
         ->orderBy('project_purchasings.purchase_date', 'desc')
         ->get();
 
+    // 6. Load Productions (Deliverables)
+    $project->productions = DB::table('project_productions')
+        ->leftJoin('users', 'project_productions.user_id', '=', 'users.id')
+        ->where('project_productions.project_id', $id)
+        ->select('project_productions.*', 'users.name as user_name')
+        ->orderBy('project_productions.created_at', 'desc')
+        ->get();
+
+    // 7. Load Documents (Files)
+    $project->documents = DB::table('project_documents')
+        ->leftJoin('users', 'project_documents.user_id', '=', 'users.id')
+        ->where('project_documents.project_id', $id)
+        ->select('project_documents.*', 'users.name as uploader_name')
+        ->orderBy('project_documents.created_at', 'desc')
+        ->get();
+
+    // 8. Load Marketing (CRM/Leads)
+    $project->marketings = DB::table('project_marketings')
+        ->leftJoin('users', 'project_marketings.user_id', '=', 'users.id')
+        ->where('project_marketings.project_id', $id)
+        ->select('project_marketings.*', 'users.name as marketer_name')
+        ->orderBy('project_marketings.created_at', 'desc')
+        ->get();
+
+    // 9. Load Support (Ticketing) - INI YANG TADI TERLEWAT
+    $project->supports = DB::table('project_supports')
+        ->leftJoin('users as reporters', 'project_supports.user_id', '=', 'reporters.id')
+        ->leftJoin('users as assigned', 'project_supports.assigned_to', '=', 'assigned.id')
+        ->where('project_supports.project_id', $id)
+        ->select('project_supports.*', 'reporters.name as reporter_name', 'assigned.name as assigned_name')
+        ->orderBy('project_supports.created_at', 'desc')
+        ->get();
+    // Tambahkan di ProjectController.php fungsi show()
+    $project->invoices = DB::table('project_invoices')
+        ->where('project_id', $id)
+        ->orderBy('created_at', 'desc')
+        ->get();
         return response()->json($project);
-    }
+}
 
     public function getByWorkCategory($id)
     {
@@ -678,5 +707,48 @@ public function deletePurchasing($id)
     } catch (\Exception $e) {
         return response()->json(['error' => 'Gagal menghapus data belanja'], 500);
     }
+}
+// --- ACCOUNTING / INVOICE MODULE ---
+
+public function storeInvoice(Request $request)
+{
+    $request->validate([
+        'project_id' => 'required|exists:projects,id',
+        'title'      => 'required',
+        'amount'     => 'required|numeric',
+        'due_date'   => 'required|date'
+    ]);
+
+    // Auto-generate invoice number: INV-PROJECTID-TIMESTAMP
+    $invNumber = 'INV-' . $request->project_id . '-' . time();
+
+    DB::table('project_invoices')->insert([
+        'project_id'     => $request->project_id,
+        'invoice_number' => $invNumber,
+        'title'          => $request->title,
+        'amount'         => $request->amount,
+        'due_date'       => $request->due_date,
+        'status'         => 'Unpaid',
+        'created_at'     => now(),
+        'updated_at'     => now()
+    ]);
+
+    return response()->json(['message' => 'Invoice Created Successfully']);
+}
+
+public function updateInvoiceStatus(Request $request, $id)
+{
+    $updateData = [
+        'status' => $request->status,
+        'updated_at' => now()
+    ];
+
+    if ($request->status === 'Paid') {
+        $updateData['paid_at'] = now();
+    }
+
+    DB::table('project_invoices')->where('id', $id)->update($updateData);
+
+    return response()->json(['message' => 'Payment Status Updated']);
 }
 }

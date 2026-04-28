@@ -54,220 +54,222 @@
         </div>
 
         <div class="p-8">
-          <div v-if="subTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-  
-            <div class="lg:col-span-2 space-y-10">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                    <h4 class="text-[11px] font-black text-blue-800 mb-4 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Project Identity</h4>
-                    <div class="space-y-3 pl-4">
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase">Project Name</span>
-                        <input v-model="project.project_title" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase">Customer / Client</span>
-                        <input v-model="project.client_name" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
-                    </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h4 class="text-[11px] font-black text-blue-800 mb-4 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Timeline & Value</h4>
-                    <div class="space-y-3 pl-4">
-                    <div class="grid grid-cols-2 gap-4">
+                <div v-if="subTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+    
+                <div class="lg:col-span-2 space-y-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="text-[11px] font-black text-blue-800 mb-4 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Project Identity</h4>
+                        <div class="space-y-3 pl-4">
                         <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase">Start Date</span>
-                        <input type="date" v-model="project.start_date" @change="updateDetail" class="text-[10px] font-black text-slate-700 outline-none bg-slate-50 rounded-md px-2 py-1 mt-1">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Project Name</span>
+                            <input v-model="project.project_title" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
                         </div>
                         <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase">Finish Date</span>
-                        <input type="date" v-model="project.finish_date" @change="updateDetail" class="text-[10px] font-black text-slate-700 outline-none bg-slate-50 rounded-md px-2 py-1 mt-1">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Customer / Client</span>
+                            <input v-model="project.client_name" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
+                        </div>
                         </div>
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase">Contract Value</span>
-                        <div class="flex items-center gap-2 mt-1">
-                        <span class="text-[10px] font-black text-slate-400">IDR</span>
-                        <input type="number" v-model="project.contract_value" @change="updateDetail" class="text-[11px] font-black text-emerald-600 outline-none bg-transparent border-b border-slate-100 w-full">
+
+                    <div>
+                        <h4 class="text-[11px] font-black text-blue-800 mb-4 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Timeline & Value</h4>
+                        <div class="space-y-3 pl-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Start Date</span>
+                            <input type="date" v-model="project.start_date" @change="updateDetail" class="text-[10px] font-black text-slate-700 outline-none bg-slate-50 rounded-md px-2 py-1 mt-1">
+                            </div>
+                            <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Finish Date</span>
+                            <input type="date" v-model="project.finish_date" @change="updateDetail" class="text-[10px] font-black text-slate-700 outline-none bg-slate-50 rounded-md px-2 py-1 mt-1">
+                            </div>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">Contract Value</span>
+                            <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] font-black text-slate-400">IDR</span>
+                            <input type="number" v-model="project.contract_value" @change="updateDetail" class="text-[11px] font-black text-emerald-600 outline-none bg-transparent border-b border-slate-100 w-full">
+                            </div>
+                        </div>
                         </div>
                     </div>
                     </div>
-                </div>
+
+                    <div>
+                    <h4 class="text-[11px] font-black text-blue-800 mb-3 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Project Description</h4>
+                    <textarea v-model="project.description" @change="updateDetail" rows="3" class="w-full pl-4 text-[11px] font-medium text-slate-600 bg-transparent border-none focus:ring-0 resize-none uppercase" placeholder="ADD DESCRIPTION..."></textarea>
+                    </div>
                 </div>
 
-                <div>
-                <h4 class="text-[11px] font-black text-blue-800 mb-3 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Project Description</h4>
-                <textarea v-model="project.description" @change="updateDetail" rows="3" class="w-full pl-4 text-[11px] font-medium text-slate-600 bg-transparent border-none focus:ring-0 resize-none uppercase" placeholder="ADD DESCRIPTION..."></textarea>
-                </div>
-            </div>
-
-            <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 space-y-6">
-                <h4 class="text-[11px] font-black text-blue-900 uppercase tracking-tighter text-center mb-4">Work Configuration</h4>
-                
-                <div class="space-y-4">
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 space-y-6">
+                    <h4 class="text-[11px] font-black text-blue-900 uppercase tracking-tighter text-center mb-4">Work Configuration</h4>
+                    
+                    <div class="space-y-4">
+                        <div class="flex flex-col">
+                            <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Work Category</label>
+                            <select v-model="project.category_id" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
+                                <option v-for="cat in masterData.categories" :key="cat.id" :value="cat.id">
+                                    {{ cat.name }}
+                                </option>
+                            </select>
+                        </div>
                     <div class="flex flex-col">
-                        <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Work Category</label>
-                        <select v-model="project.category_id" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
-                            <option v-for="cat in masterData.categories" :key="cat.id" :value="cat.id">
-                                {{ cat.name }}
-                            </option>
+                        <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Current Status</label>
+                        <select v-model="project.status" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
+                        <option v-for="s in masterData.status" :key="s.id" :value="s.name">{{ s.name }}</option>
                         </select>
                     </div>
-                <div class="flex flex-col">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Current Status</label>
-                    <select v-model="project.status" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-blue-800 uppercase outline-none focus:ring-2 ring-blue-100">
-                    <option v-for="s in masterData.status" :key="s.id" :value="s.name">{{ s.name }}</option>
-                    </select>
-                </div>
 
-                <div class="flex flex-col">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Priority Level</label>
-                    <select v-model="project.priority" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-rose-600 uppercase outline-none focus:ring-2 ring-rose-100">
-                    <option v-for="p in masterData.priority" :key="p.id" :value="p.name">{{ p.name }}</option>
-                    </select>
-                </div>
-
-                <div class="flex flex-col">
-                    <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Contract Package</label>
-                    <select v-model="project.package" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-slate-700 uppercase outline-none">
-                    <option v-for="pkg in masterData.package" :key="pkg.id" :value="pkg.name">{{ pkg.name }}</option>
-                    </select>
-                </div>
-                </div>
-
-                <div class="pt-6 border-t border-slate-200 grid grid-cols-2 gap-4">
-                <div class="text-center">
-                    <p class="text-[8px] font-bold text-slate-400 uppercase">Days Elapsed</p>
-                    <p class="text-sm font-black text-slate-800">{{ project?.total_day || '0' }}</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-[8px] font-bold text-slate-400 uppercase">Tasks Count</p>
-                    <p class="text-sm font-black text-slate-800">{{ project?.tasks?.length || '0' }}</p>
-                </div>
-                </div>
-            </div>
-
-            </div>
-          <div v-if="subTab === 'aktivty'" class="space-y-6 animate-in fade-in duration-500">
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap lg:flex-nowrap gap-3 items-center shadow-inner">
-                    <input v-model="newTaskName" @keyup.enter="handleAddTask" type="text" placeholder="Task Name..." 
-                    class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black text-slate-700 uppercase outline-none focus:ring-2 ring-blue-100 shadow-sm">
-                    
-                    <div class="relative flex items-center">
-                    <i class="fas fa-tag absolute left-4 text-[10px] text-slate-300"></i>
-                    <input v-model="newTaskCategory" type="text" placeholder="CATEGORY..." 
-                        class="w-32 bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-[10px] font-black text-blue-600 uppercase outline-none focus:ring-2 ring-blue-50 shadow-sm">
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Priority Level</label>
+                        <select v-model="project.priority" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-rose-600 uppercase outline-none focus:ring-2 ring-rose-100">
+                        <option v-for="p in masterData.priority" :key="p.id" :value="p.name">{{ p.name }}</option>
+                        </select>
                     </div>
 
-                    <select v-model="newTaskPriority" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase outline-none shadow-sm"
-                    :class="newTaskPriority === 'High' ? 'text-rose-600' : 'text-slate-500'">
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">Urgent</option>
-                    </select>
-
-                    <button @click="handleAddTask" class="bg-blue-800 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-100 hover:scale-95 transition-all">
-                    Add Task
-                    </button>
-                </div>
-
-                <div class="space-y-3">
-                    <div v-if="!project?.tasks?.length" class="py-20 text-center space-y-3 grayscale opacity-30">
-                        <i class="fas fa-clipboard-list text-4xl text-slate-300"></i>
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No activities recorded yet</p>
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Contract Package</label>
+                        <select v-model="project.package" @change="updateDetail" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black text-slate-700 uppercase outline-none">
+                        <option v-for="pkg in masterData.package" :key="pkg.id" :value="pkg.name">{{ pkg.name }}</option>
+                        </select>
+                    </div>
                     </div>
 
-                    <div v-for="task in project?.tasks" :key="task.id" 
-                    class="group bg-white border border-slate-100 p-4 rounded-2xl flex items-center gap-4 transition-all hover:border-blue-200 hover:shadow-md" 
-                    :class="task.is_completed ? 'bg-slate-50/50' : ''">
-                    
-                    <button @click="handleToggleTask(task)" 
-                        class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all" 
-                        :class="task.is_completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-white text-transparent hover:border-blue-400'">
-                        <i class="fas fa-check text-[10px]"></i>
-                    </button>
+                    <div class="pt-6 border-t border-slate-200 grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <p class="text-[8px] font-bold text-slate-400 uppercase">Days Elapsed</p>
+                        <p class="text-sm font-black text-slate-800">{{ project?.total_day || '0' }}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[8px] font-bold text-slate-400 uppercase">Tasks Count</p>
+                        <p class="text-sm font-black text-slate-800">{{ project?.tasks?.length || '0' }}</p>
+                    </div>
+                    </div>
+                </div>
 
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-[11px] font-black uppercase transition-all" 
-                                :class="task.is_completed ? 'text-slate-300 line-through' : 'text-slate-700'">
-                            {{ task.task_name }}
-                            </span>
+                </div>
+
+                <div v-if="subTab === 'aktivty'" class="space-y-6 animate-in fade-in duration-500">
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap lg:flex-nowrap gap-3 items-center shadow-inner">
+                        <input v-model="newTaskName" @keyup.enter="handleAddTask" type="text" placeholder="Task Name..." 
+                        class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black text-slate-700 uppercase outline-none focus:ring-2 ring-blue-100 shadow-sm">
+                        
+                        <div class="relative flex items-center">
+                        <i class="fas fa-tag absolute left-4 text-[10px] text-slate-300"></i>
+                        <input v-model="newTaskCategory" type="text" placeholder="CATEGORY..." 
+                            class="w-32 bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-[10px] font-black text-blue-600 uppercase outline-none focus:ring-2 ring-blue-50 shadow-sm">
+                        </div>
+
+                        <select v-model="newTaskPriority" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase outline-none shadow-sm"
+                        :class="newTaskPriority === 'High' ? 'text-rose-600' : 'text-slate-500'">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">Urgent</option>
+                        </select>
+
+                        <button @click="handleAddTask" class="bg-blue-800 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-100 hover:scale-95 transition-all">
+                        Add Task
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div v-if="!project?.tasks?.length" class="py-20 text-center space-y-3 grayscale opacity-30">
+                            <i class="fas fa-clipboard-list text-4xl text-slate-300"></i>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No activities recorded yet</p>
+                        </div>
+
+                        <div v-for="task in project?.tasks" :key="task.id" 
+                        class="group bg-white border border-slate-100 p-4 rounded-2xl flex items-center gap-4 transition-all hover:border-blue-200 hover:shadow-md" 
+                        :class="task.is_completed ? 'bg-slate-50/50' : ''">
+                        
+                        <button @click="handleToggleTask(task)" 
+                            class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all" 
+                            :class="task.is_completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-white text-transparent hover:border-blue-400'">
+                            <i class="fas fa-check text-[10px]"></i>
+                        </button>
+
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[11px] font-black uppercase transition-all" 
+                                    :class="task.is_completed ? 'text-slate-300 line-through' : 'text-slate-700'">
+                                {{ task.task_name }}
+                                </span>
+                                
+                                <span class="bg-blue-50 text-blue-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-blue-100 uppercase">
+                                {{ task.task_category || 'GENERAL' }}
+                                </span>
+
+                                <span v-if="task.priority === 'High'" class="bg-rose-100 text-rose-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-rose-200">URGENT</span>
+                            </div>
                             
-                            <span class="bg-blue-50 text-blue-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-blue-100 uppercase">
-                            {{ task.task_category || 'GENERAL' }}
-                            </span>
+                            <div class="flex gap-3 mt-1">
+                                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                    <i class="far fa-clock mr-1"></i> {{ formatDate(task.created_at) }}
+                                </span>
+                                <span class="text-[8px] font-bold text-blue-400 uppercase tracking-tighter">
+                                    <i class="far fa-user mr-1"></i> Suhery
+                                </span>
+                            </div>
+                        </div>
 
-                            <span v-if="task.priority === 'High'" class="bg-rose-100 text-rose-600 text-[7px] px-1.5 py-0.5 rounded font-black border border-rose-200">URGENT</span>
+                        <div class="flex items-center gap-2">
+                            <button @click="openTaskDetail(task)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center">
+                                <i class="fas fa-expand-alt text-[10px]"></i>
+                            </button>
+                            <button @click="handleDeleteTask(task.id)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
+                                <i class="fas fa-trash-alt text-[10px]"></i>
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div v-if="project?.tasks?.length" class="pt-6 border-t border-slate-100 flex justify-between items-center">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                            Completed: {{ project.tasks.filter((t: any) => t.is_completed).length }} / {{ project.tasks.length }} Tasks
+                        </p>
+                        <div class="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
+                            <div class="bg-emerald-500 h-full transition-all duration-700" :style="{ width: (project?.progress_percent || 0) + '%' }"></div>
+                        </div>
+                    </div>
+                    <div v-if="showTaskModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-800 text-white flex items-center justify-center text-xs shadow-lg shadow-blue-200">
+                            <i class="fas fa-file-alt"></i>
+                            </div>
+                            <h4 class="text-xs font-black uppercase text-blue-900 tracking-widest">Activity Documentation</h4>
+                        </div>
+                        <button @click="showTaskModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+                            <i class="fas fa-times text-slate-400"></i>
+                        </button>
                         </div>
                         
-                        <div class="flex gap-3 mt-1">
-                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                                <i class="far fa-clock mr-1"></i> {{ formatDate(task.created_at) }}
-                            </span>
-                            <span class="text-[8px] font-bold text-blue-400 uppercase tracking-tighter">
-                                <i class="far fa-user mr-1"></i> Suhery
-                            </span>
+                        <div class="p-8 space-y-6">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Task Title</label>
+                            <div class="text-[13px] font-black text-slate-800 uppercase px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">{{ activeTask?.task_name }}</div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Documentation / Tech Notes</label>
+                            <textarea v-model="activeTask.description" rows="6" 
+                            class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-blue-50 transition-all"
+                            placeholder="Paste your code snippet or tech notes here..."></textarea>
+                        </div>
+                        </div>
+
+                        <div class="p-6 bg-slate-50 flex gap-3">
+                        <button @click="saveTaskDetail" class="flex-1 bg-blue-800 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200 transition-all active:scale-95">
+                            Update Documentation
+                        </button>
                         </div>
                     </div>
-
-                    <div class="flex items-center gap-2">
-                        <button @click="openTaskDetail(task)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center">
-                            <i class="fas fa-expand-alt text-[10px]"></i>
-                        </button>
-                        <button @click="handleDeleteTask(task.id)" class="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
-                            <i class="fas fa-trash-alt text-[10px]"></i>
-                        </button>
-                    </div>
                     </div>
                 </div>
 
-                <div v-if="project?.tasks?.length" class="pt-6 border-t border-slate-100 flex justify-between items-center">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        Completed: {{ project.tasks.filter((t: any) => t.is_completed).length }} / {{ project.tasks.length }} Tasks
-                    </p>
-                    <div class="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
-                        <div class="bg-emerald-500 h-full transition-all duration-700" :style="{ width: (project?.progress_percent || 0) + '%' }"></div>
-                    </div>
-                </div>
-                <div v-if="showTaskModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-blue-800 text-white flex items-center justify-center text-xs shadow-lg shadow-blue-200">
-                        <i class="fas fa-file-alt"></i>
-                        </div>
-                        <h4 class="text-xs font-black uppercase text-blue-900 tracking-widest">Activity Documentation</h4>
-                    </div>
-                    <button @click="showTaskModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
-                        <i class="fas fa-times text-slate-400"></i>
-                    </button>
-                    </div>
-                    
-                    <div class="p-8 space-y-6">
-                    <div class="space-y-1">
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Task Title</label>
-                        <div class="text-[13px] font-black text-slate-800 uppercase px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">{{ activeTask?.task_name }}</div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Documentation / Tech Notes</label>
-                        <textarea v-model="activeTask.description" rows="6" 
-                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 outline-none focus:ring-2 ring-blue-50 transition-all"
-                        placeholder="Paste your code snippet or tech notes here..."></textarea>
-                    </div>
-                    </div>
-
-                    <div class="p-6 bg-slate-50 flex gap-3">
-                    <button @click="saveTaskDetail" class="flex-1 bg-blue-800 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200 transition-all active:scale-95">
-                        Update Documentation
-                    </button>
-                    </div>
-                </div>
-                </div>
-            </div>
-            <div v-if="subTab === 'workorder'" class="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                <div v-if="subTab === 'workorder'" class="space-y-6 animate-in slide-in-from-right-4 duration-500">
                 <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner">
                     <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-xl bg-blue-800 text-white flex items-center justify-center shadow-lg">
@@ -283,66 +285,66 @@
                     </button>
                 </div>
 
-                <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                    <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50/50 border-b border-slate-50">
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">WO Number</th>
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Task Description</th>
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">In Charge</th>
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Budget (IDR)</th>
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                        <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        <tr v-if="!project?.work_orders?.length">
-                        <td colspan="6" class="py-20 text-center">
-                            <div class="opacity-20 grayscale flex flex-col items-center">
-                            <i class="fas fa-folder-open text-4xl mb-3 text-slate-300"></i>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Official Orders Found</p>
-                            </div>
-                        </td>
-                        </tr>
-                        <tr v-for="wo in project?.work_orders" :key="wo.id" class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-6 py-4">
-                            <span class="text-[10px] font-black text-blue-800 uppercase tracking-tighter">#WO-{{ wo.id }}</span>
-                            <p class="text-[7px] text-slate-400 font-bold uppercase mt-0.5">{{ formatDate(wo.created_at) }}</p>
-                        </td>
-                        <td class="px-6 py-4">
-                            <p class="text-[11px] font-black text-slate-700 uppercase leading-tight">{{ wo.title }}</p>
-                            <p class="text-[8px] text-slate-400 font-medium line-clamp-1 italic mt-0.5">{{ wo.description || 'No instruction' }}</p>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                <i class="fas fa-user text-[8px] text-slate-400"></i>
-                            </div>
-                            <span class="text-[9px] font-bold text-slate-600 uppercase">{{ wo.pic_name || 'Unassigned' }}</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <span class="text-[11px] font-black text-emerald-600 tracking-tight">{{ formatCurrency(wo.budget) }}</span>
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <span :class="statusClass(wo.status)" class="px-3 py-1 rounded-lg text-[8px] font-black uppercase border">
-                            {{ wo.status }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <div class="flex justify-center gap-2">
-                                <button @click="editWO(wo)" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all">
-                                <i class="fas fa-pencil-alt text-[9px]"></i>
-                                </button>
-                                <button @click="deleteWO(wo.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all">
-                                <i class="fas fa-trash text-[9px]"></i>
-                                </button>
-                            </div>
-                        </td>
-                        </tr>
-                    </tbody>
-                    </table>
-                </div>
+                    <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                        <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50 border-b border-slate-50">
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">WO Number</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Task Description</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">In Charge</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Budget (IDR)</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            <tr v-if="!project?.work_orders?.length">
+                            <td colspan="6" class="py-20 text-center">
+                                <div class="opacity-20 grayscale flex flex-col items-center">
+                                <i class="fas fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Official Orders Found</p>
+                                </div>
+                            </td>
+                            </tr>
+                            <tr v-for="wo in project?.work_orders" :key="wo.id" class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <span class="text-[10px] font-black text-blue-800 uppercase tracking-tighter">#WO-{{ wo.id }}</span>
+                                <p class="text-[7px] text-slate-400 font-bold uppercase mt-0.5">{{ formatDate(wo.created_at) }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                <p class="text-[11px] font-black text-slate-700 uppercase leading-tight">{{ wo.title }}</p>
+                                <p class="text-[8px] text-slate-400 font-medium line-clamp-1 italic mt-0.5">{{ wo.description || 'No instruction' }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                                    <i class="fas fa-user text-[8px] text-slate-400"></i>
+                                </div>
+                                <span class="text-[9px] font-bold text-slate-600 uppercase">{{ wo.pic_name || 'Unassigned' }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <span class="text-[11px] font-black text-emerald-600 tracking-tight">{{ formatCurrency(wo.budget) }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span :class="statusClass(wo.status)" class="px-3 py-1 rounded-lg text-[8px] font-black uppercase border">
+                                {{ wo.status }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex justify-center gap-2">
+                                    <button @click="editWO(wo)" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all">
+                                    <i class="fas fa-pencil-alt text-[9px]"></i>
+                                    </button>
+                                    <button @click="deleteWO(wo.id)" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all">
+                                    <i class="fas fa-trash text-[9px]"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            </tr>
+                        </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div v-if="showWOModal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
@@ -477,6 +479,7 @@
                     </div>
                 </div>
                 </div>
+
                 <div v-if="subTab === 'produks'" class="space-y-6 animate-in fade-in duration-500">
                     <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                         <div class="flex items-center gap-3 mb-2">
@@ -541,6 +544,7 @@
                         </div>
                     </div>
                 </div>  
+
                 <div v-if="subTab === 'document'" class="space-y-6 animate-in fade-in duration-500">
   
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
@@ -590,6 +594,7 @@
                     </div>
                 </div>
                 </div>
+
                 <div v-if="subTab === 'support'" class="space-y-6 animate-in fade-in duration-500">
   
                     <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
@@ -651,8 +656,9 @@
                         </div>
                         </div>
                     </div>
-                    </div>
-                 <div v-if="subTab === 'marketing'" class="space-y-6 animate-in fade-in duration-500">
+                </div>
+
+                <div v-if="subTab === 'marketing'" class="space-y-6 animate-in fade-in duration-500">
                     
                     <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                         <div class="flex items-center gap-3 mb-6">
@@ -728,8 +734,9 @@
                         </div>
                         </div>
                     </div>
-                    </div>   
-               <div v-if="subTab === 'purchasing'" class="space-y-6 animate-in fade-in duration-500">
+                </div>  
+
+                <div v-if="subTab === 'purchasing'" class="space-y-6 animate-in fade-in duration-500">
                 
                     <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                         <div class="flex items-center gap-3 mb-6">
@@ -833,6 +840,7 @@
                             </div>
                     </div>
                 </div>   
+
                 <div v-if="subTab === 'financial'" class="space-y-8 animate-in fade-in zoom-in duration-500">
   
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -911,80 +919,81 @@
                         </table>
                         </div>
                     </div>
-                    </div>
-                    <div v-if="subTab === 'accounting'" class="space-y-6 animate-in fade-in duration-500">
+                </div>
+
+                <div v-if="subTab === 'accounting'" class="space-y-6 animate-in fade-in duration-500">
   
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-100">
-      <p class="text-[9px] font-black opacity-70 uppercase tracking-widest">Total Collected (Uang Masuk)</p>
-      <h3 class="text-2xl font-black">{{ formatCurrency(calculateTotalInvoiced('Paid')) }}</h3>
-    </div>
-    <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
-      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outstanding (Sisa Tagihan)</p>
-      <h3 class="text-2xl font-black text-rose-500">{{ formatCurrency(calculateTotalInvoiced('Unpaid')) }}</h3>
-    </div>
-  </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-100">
+                            <p class="text-[9px] font-black opacity-70 uppercase tracking-widest">Total Collected (Uang Masuk)</p>
+                            <h3 class="text-2xl font-black">{{ formatCurrency(calculateTotalInvoiced('Paid')) }}</h3>
+                            </div>
+                            <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outstanding (Sisa Tagihan)</p>
+                            <h3 class="text-2xl font-black text-rose-500">{{ formatCurrency(calculateTotalInvoiced('Unpaid')) }}</h3>
+                            </div>
+                        </div>
 
-  <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-        <i class="fas fa-file-invoice-dollar text-xs"></i>
-      </div>
-      <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Generate New Invoice</h4>
-    </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                            <div class="flex items-center gap-3 mb-6">
+                            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+                                <i class="fas fa-file-invoice-dollar text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Generate New Invoice</h4>
+                            </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-      <input v-model="invForm.title" type="text" placeholder="INVOICE TITLE (E.G. TERMIN 1)" 
-        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
-      <input v-model="invForm.amount" type="number" placeholder="AMOUNT" 
-        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
-      <input v-model="invForm.due_date" type="date" 
-        class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
-    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <input v-model="invForm.title" type="text" placeholder="INVOICE TITLE (E.G. TERMIN 1)" 
+                                class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none uppercase">
+                            <input v-model="invForm.amount" type="number" placeholder="AMOUNT" 
+                                class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                            <input v-model="invForm.due_date" type="date" 
+                                class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[11px] font-bold outline-none">
+                            </div>
 
-    <button @click="handleSaveInvoice" class="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[0.98] transition-all">
-      Generate & Send Invoice
-    </button>
-  </div>
+                            <button @click="handleSaveInvoice" class="w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[0.98] transition-all">
+                            Generate & Send Invoice
+                            </button>
+                        </div>
 
-  <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
-    <table class="w-full text-left">
-      <thead class="bg-slate-50">
-        <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-          <th class="p-4 px-6">Invoice #</th>
-          <th class="p-4">Description</th>
-          <th class="p-4 text-right">Amount</th>
-          <th class="p-4 text-center">Status</th>
-          <th class="p-4 px-6 text-center">Action</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-50">
-        <tr v-for="inv in project?.invoices" :key="inv.id" class="hover:bg-slate-50/50">
-          <td class="p-4 px-6 font-mono text-[10px] text-indigo-600">{{ inv.invoice_number }}</td>
-          <td class="p-4 font-bold text-[11px] text-slate-700 uppercase">{{ inv.title }}</td>
-          <td class="p-4 text-right font-black text-slate-900">{{ formatCurrency(inv.amount) }}</td>
-          <td class="p-4 text-center">
-            <span :class="inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" 
-              class="text-[8px] font-black px-2 py-1 rounded uppercase border">
-              {{ inv.status }}
-            </span>
-          </td>
-          <td class="p-4 px-6 text-center">
-            <button v-if="inv.status !== 'Paid'" @click="updateInvStatus(inv.id, 'Paid')" 
-              class="text-[9px] font-black text-emerald-500 hover:underline uppercase">Mark as Paid</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-          <div v-if="['financial', 'teamwork', 'document'].includes(subTab)" class="py-20 text-center text-slate-300">
-             <i class="fas fa-tools text-4xl mb-4"></i>
-             <p class="text-[10px] font-black uppercase tracking-widest">Section {{ subTab }} is under development</p>
-          </div>
+                        <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+                            <table class="w-full text-left">
+                            <thead class="bg-slate-50">
+                                <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <th class="p-4 px-6">Invoice #</th>
+                                <th class="p-4">Description</th>
+                                <th class="p-4 text-right">Amount</th>
+                                <th class="p-4 text-center">Status</th>
+                                <th class="p-4 px-6 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <tr v-for="inv in project?.invoices" :key="inv.id" class="hover:bg-slate-50/50">
+                                <td class="p-4 px-6 font-mono text-[10px] text-indigo-600">{{ inv.invoice_number }}</td>
+                                <td class="p-4 font-bold text-[11px] text-slate-700 uppercase">{{ inv.title }}</td>
+                                <td class="p-4 text-right font-black text-slate-900">{{ formatCurrency(inv.amount) }}</td>
+                                <td class="p-4 text-center">
+                                    <span :class="inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" 
+                                    class="text-[8px] font-black px-2 py-1 rounded uppercase border">
+                                    {{ inv.status }}
+                                    </span>
+                                </td>
+                                <td class="p-4 px-6 text-center">
+                                    <button v-if="inv.status !== 'Paid'" @click="updateInvStatus(inv.id, 'Paid')" 
+                                    class="text-[9px] font-black text-emerald-500 hover:underline uppercase">Mark as Paid</button>
+                                </td>
+                                </tr>
+                            </tbody>
+                            </table>
+                        </div>
+                </div>
+
+                <div v-if="['financial', 'teamwork', 'document'].includes(subTab)" class="py-20 text-center text-slate-300">
+                     <i class="fas fa-tools text-4xl mb-4"></i>
+                    <p class="text-[10px] font-black uppercase tracking-widest">Section {{ subTab }} is under development</p>
+                </div>
         </div>
       </div>
-
     </div>
   </div>
 </template>

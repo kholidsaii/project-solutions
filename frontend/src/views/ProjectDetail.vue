@@ -1,7 +1,6 @@
 <template>
   <div class="min-h-screen bg-[#F8FAFC] pb-20 md:pl-20 font-sans text-slate-900">
-    <div class="max-w-7xl mx-auto px-6 mt-8 space-y-4">
-      
+    <div class="max-w-7xl mx-auto px-6 mt-8 space-y-4">   
       <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 flex items-center justify-between border-b border-slate-100">
           <div class="flex items-center gap-4">

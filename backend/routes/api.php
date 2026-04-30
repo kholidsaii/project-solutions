@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\ProjectController;
 use Illuminate\Support\Facades\Route;
 use Termwind\Components\Raw;
+use Illuminate\Support\Facades\DB;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -70,4 +71,27 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- PROJECT PURCHASING ---
     Route::post('/project-purchasings', [ProjectController::class, 'storePurchasing']);
     Route::delete('/project-purchasings/{id}', [ProjectController::class, 'deletePurchasing']);
+   // --- 1. TEAMWORK & RESOURCE MANAGEMENT ---
+    Route::get('/teamwork/summary', [ProjectController::class, 'getTeamworkSummary']);
+    Route::get('/teamwork/top-outstanding', [ProjectController::class, 'getTopOutstanding']);
+    Route::post('/teamwork/finance', [ProjectController::class, 'storeTeamFinance']);
+    Route::put('/teamwork/finance/{id}/settle', [ProjectController::class, 'settleTeamFinance']);
+
+    // --- 2. COMPANY / PT MANAGEMENT ---
+    Route::get('/companies', [ProjectController::class, 'getCompanies']);
+    Route::post('/companies', [ProjectController::class, 'storeCompany']);
+    Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
+
+    // --- 3. FINANCE & ACCOUNTING ---
+    Route::get('/finance/consolidated', [ProjectController::class, 'getConsolidatedFinance']);
+    Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);
+    Route::get('/accounting/coas', [ProjectController::class, 'getCOAs']);
+    Route::post('/accounting/coas', [ProjectController::class, 'storeCOA']);
+    Route::get('/accounting/journals', [ProjectController::class, 'getJournals']);
+    Route::post('/project-invoices', [ProjectController::class, 'storeInvoice']);
+    Route::put('/project-invoices/{id}/status', [ProjectController::class, 'updateInvoiceStatus']);
+
+    // --- 4. CATALOG ---
+    Route::get('/products-catalog', [ProjectController::class, 'getCatalog']);
+    Route::get('/finance/cashflow', [ProjectController::class, 'getCashFlow']);
 });

@@ -7,13 +7,17 @@ const routes = [
   { path: '/login', name: 'Login', component: Login },
   { path: '/', name: 'Dashboard', component: Dashboard, meta: { requiresAuth: true } },
   
-  // Menu aktif
+  // Menu Operasional
   { path: '/sales', name: 'Sales', component: () => import('../views/Sales.vue'), meta: { requiresAuth: true } },
-  { path: '/projects/:id?', name: 'Projects', component: () => import('../views/Projects.vue'), meta: { requiresAuth: true } }, // Tambahkan :id?
+  
+  // Perbaikan: Gunakan satu nama unik untuk list project
+  { path: '/projects', name: 'Projects', component: () => import('../views/Projects.vue'), meta: { requiresAuth: true } },
+  
+  // Route khusus untuk melihat detail satu project secara utuh
+  { path: '/projects/:id', name: 'ProjectDetail', component: () => import('../views/ProjectDetail.vue'), meta: { requiresAuth: true } },
+
+  // Menu Lainnya
   { path: '/activity', name: 'Activity', component: () => import('../views/Activity.vue'), meta: { requiresAuth: true } },
-  { path: '/analysis', name: 'Analysis', component: () => import('../views/Analysis.vue'), meta: { requiresAuth: true } },
- 
-  { path: '/products', name: 'Products', component: () => import('../views/Products.vue'), meta: { requiresAuth: true } },
   { path: '/financial', name: 'Financial', component: () => import('../views/Financial.vue'), meta: { requiresAuth: true } },
   { path: '/teamwork', name: 'Teamwork', component: () => import('../views/Teamwork.vue'), meta: { requiresAuth: true } },
   { path: '/documents', name: 'Documents', component: () => import('../views/Documents.vue'), meta: { requiresAuth: true } },

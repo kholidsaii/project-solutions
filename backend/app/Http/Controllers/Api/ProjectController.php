@@ -17,23 +17,28 @@ class ProjectController extends Controller
             'priority'   => 'work_priorities',
             'package'    => 'work_packages',
             'color'      => 'work_colors',
-            'projects'   => 'projects', // Tambahkan ini agar bisa akses tabel project langsung
+            'projects'   => 'projects',
             default      => null
         };
     }
-   public function index()
+    public function index(Request $request)
     {
         try {
-            $projects = DB::table('projects')
+            $query = DB::table('projects')
                 ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
                 ->select(
                     'projects.*', 
                     'work_categories.name as category_name',
-                    'work_categories.image_path as category_logo', // AMBIL LOGO DI SINI
+                    'work_categories.image_path as category_logo',
                     DB::raw("(finish_date - start_date) as total_day_diff") 
-                )
-                ->orderBy('projects.created_at', 'desc')
-                ->get();
+                );
+
+            // Fitur Drill-down: Filter berdasarkan Perusahaan jika ada parameter company_id
+            if ($request->has('company_id')) {
+                $query->where('projects.company_id', $request->company_id);
+            }
+
+            $projects = $query->orderBy('projects.created_at', 'desc')->get();
 
             $formatted = $projects->map(function($p) {
                 return [
@@ -44,11 +49,13 @@ class ProjectController extends Controller
                     'finish_date' => $p->finish_date ? Carbon::parse($p->finish_date)->format('d F Y') : '-',
                     'total_day' => ($p->total_day_diff ?? 0) . ' Day',
                     'category' => $p->category_name,
-                    'logo' => $p->category_logo ? 'uploads/' . $p->category_logo : null,// Logo sekarang terisi path (misal: categories/abc.jpg)
+                    'logo' => $p->category_logo ? 'uploads/' . $p->category_logo : null,
                     'status' => $p->status,
                     'priority' => $p->priority,
                     'package' => $p->package ?? '-',
                     'progress' => $p->progress_percent,
+                    'contract_value' => (float)$p->contract_value,
+                    'company_id' => $p->company_id,
                     'color' => $p->status == 'Finish' ? 'bg-emerald-500' : 'bg-blue-600'
                 ];
             });
@@ -66,12 +73,14 @@ class ProjectController extends Controller
             'client_name' => 'required|string',
             'contract_value' => 'required|numeric',
             'deadline' => 'required|date',
-            'category_id' => 'required|exists:work_categories,id'
+            'category_id' => 'required|exists:work_categories,id',
+            'company_id' => 'required|exists:companies,id' // Pastikan project terikat ke PT
         ]);
 
         try {
             $id = DB::table('projects')->insertGetId([
                 'category_id' => $request->category_id,
+                'company_id' => $request->company_id,
                 'project_title' => $request->project_title,
                 'client_name' => $request->client_name,
                 'contract_value' => $request->contract_value,
@@ -88,91 +97,101 @@ class ProjectController extends Controller
     }
 
     public function show($id)
-{
-    // 1. Ambil Data Utama Project & Kategori
-    $project = DB::table('projects')
-        ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-        ->select('projects.*', 'work_categories.name as category_name', 'work_categories.image_path as logo')
-        ->where('projects.id', $id)
-        ->first();
+    {
+        // 1. Ambil Data Utama Project, Kategori, dan Nama PT Afiliasi
+        $project = DB::table('projects')
+            ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
+            ->leftJoin('companies', 'projects.company_id', '=', 'companies.id') // RELASI KE PT
+            ->select(
+                'projects.*', 
+                'work_categories.name as category_name', 
+                'work_categories.image_path as logo',
+                'companies.name as affiliated_pt_name' // Tampilkan nama PT
+            )
+            ->where('projects.id', $id)
+            ->first();
 
-    if (!$project) {
-        return response()->json(['message' => 'Project tidak ditemukan'], 404);
-    }
+        if (!$project) {
+            return response()->json(['message' => 'Project tidak ditemukan'], 404);
+        }
 
-    // 2. Load Team & Hitung Kontribusi Task per Member (Relasi Aktivty)
-    $project->team = DB::table('project_teams')
-        ->join('users', 'project_teams.user_id', '=', 'users.id')
-        ->where('project_teams.project_id', $id)
-        ->select('users.id', 'users.name', 'project_teams.role')
-        ->get();
+        // 2. Kalkulasi Finansial Project (Real-time)
+        $totalPurchasing = DB::table('project_purchasings')->where('project_id', $id)->sum('total_price');
+        $totalWorkOrder = DB::table('work_orders')->where('project_id', $id)->sum('budget');
+        
+        $project->financials = [
+            'total_expense' => (float)($totalPurchasing + $totalWorkOrder),
+            'total_purchasing' => (float)$totalPurchasing,
+            'total_work_order' => (float)$totalWorkOrder,
+            'remaining_budget' => (float)($project->contract_value - ($totalPurchasing + $totalWorkOrder))
+        ];
 
-    foreach ($project->team as $member) {
-        $member->tasks_count = DB::table('project_tasks')
+        // 3. Load Team & Hitung Kontribusi Task per Member
+        $project->team = DB::table('project_teams')
+            ->join('users', 'project_teams.user_id', '=', 'users.id')
+            ->where('project_teams.project_id', $id)
+            ->select('users.id', 'users.name', 'users.position', 'project_teams.role')
+            ->get();
+
+        foreach ($project->team as $member) {
+            $member->tasks_count = DB::table('project_tasks')
+                ->where('project_id', $id)
+                ->where('assigned_to', $member->id)
+                ->count();
+        }
+
+        // 4. Load Tasks & Timeline Logic
+        $project->tasks = DB::table('project_tasks')
             ->where('project_id', $id)
-            ->where('assigned_to', $member->id)
-            ->count();
-    }
+            ->orderBy('id', 'asc')
+            ->get();
+            
+        $project->days_left = $project->deadline ? Carbon::parse($project->deadline)->diffInDays(now(), false) : null;
 
-    // 3. Load Aktivty (Tasks)
-    $project->tasks = DB::table('project_tasks')
-        ->where('project_id', $id)
-        ->orderBy('id', 'asc')
-        ->get();
+        // 5. Load Financial Sources (Work Orders & Purchasing)
+        $project->work_orders = DB::table('work_orders')->where('project_id', $id)->orderBy('id', 'desc')->get();
+        $project->purchasings = DB::table('project_purchasings')
+            ->leftJoin('users', 'project_purchasings.user_id', '=', 'users.id')
+            ->where('project_purchasings.project_id', $id)
+            ->select('project_purchasings.*', 'users.name as buyer_name')
+            ->orderBy('purchase_date', 'desc')
+            ->get();
 
-    // 4. Load Work Orders (Financial Source A)
-    $project->work_orders = DB::table('work_orders')
-        ->where('project_id', $id)
-        ->orderBy('id', 'desc')
-        ->get();
+        // 6. Load Deliverables & Files
+        $project->productions = DB::table('project_productions')
+            ->leftJoin('users', 'project_productions.user_id', '=', 'users.id')
+            ->where('project_productions.project_id', $id)
+            ->select('project_productions.*', 'users.name as creator_name')
+            ->get();
 
-    // 5. Load Purchasing (Financial Source B)
-    $project->purchasings = DB::table('project_purchasings')
-        ->leftJoin('users', 'project_purchasings.user_id', '=', 'users.id')
-        ->where('project_purchasings.project_id', $id)
-        ->select('project_purchasings.*', 'users.name as buyer_name')
-        ->orderBy('project_purchasings.purchase_date', 'desc')
-        ->get();
+        $project->documents = DB::table('project_documents')
+            ->leftJoin('users', 'project_documents.user_id', '=', 'users.id')
+            ->where('project_documents.project_id', $id)
+            ->select('project_documents.*', 'users.name as uploader_name')
+            ->get();
 
-    // 6. Load Productions (Deliverables)
-    $project->productions = DB::table('project_productions')
-        ->leftJoin('users', 'project_productions.user_id', '=', 'users.id')
-        ->where('project_productions.project_id', $id)
-        ->select('project_productions.*', 'users.name as user_name')
-        ->orderBy('project_productions.created_at', 'desc')
-        ->get();
+        // 7. Load CRM & Support
+        $project->marketings = DB::table('project_marketings')->where('project_id', $id)->get();
+        $project->supports = DB::table('project_supports')
+            ->leftJoin('users as reporters', 'project_supports.user_id', '=', 'reporters.id')
+            ->leftJoin('users as assigned', 'project_supports.assigned_to', '=', 'assigned.id')
+            ->where('project_supports.project_id', $id)
+            ->select('project_supports.*', 'reporters.name as reporter_name', 'assigned.name as assigned_name')
+            ->get();
 
-    // 7. Load Documents (Files)
-    $project->documents = DB::table('project_documents')
-        ->leftJoin('users', 'project_documents.user_id', '=', 'users.id')
-        ->where('project_documents.project_id', $id)
-        ->select('project_documents.*', 'users.name as uploader_name')
-        ->orderBy('project_documents.created_at', 'desc')
-        ->get();
+        // 8. Load Invoices & Payment Summary
+        $project->invoices = DB::table('project_invoices')
+            ->where('project_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        $project->payment_summary = [
+            'total_paid' => (float)DB::table('project_invoices')->where('project_id', $id)->where('status', 'Paid')->sum('amount'),
+            'total_unpaid' => (float)DB::table('project_invoices')->where('project_id', $id)->where('status', 'Unpaid')->sum('amount'),
+        ];
 
-    // 8. Load Marketing (CRM/Leads)
-    $project->marketings = DB::table('project_marketings')
-        ->leftJoin('users', 'project_marketings.user_id', '=', 'users.id')
-        ->where('project_marketings.project_id', $id)
-        ->select('project_marketings.*', 'users.name as marketer_name')
-        ->orderBy('project_marketings.created_at', 'desc')
-        ->get();
-
-    // 9. Load Support (Ticketing) - INI YANG TADI TERLEWAT
-    $project->supports = DB::table('project_supports')
-        ->leftJoin('users as reporters', 'project_supports.user_id', '=', 'reporters.id')
-        ->leftJoin('users as assigned', 'project_supports.assigned_to', '=', 'assigned.id')
-        ->where('project_supports.project_id', $id)
-        ->select('project_supports.*', 'reporters.name as reporter_name', 'assigned.name as assigned_name')
-        ->orderBy('project_supports.created_at', 'desc')
-        ->get();
-    // Tambahkan di ProjectController.php fungsi show()
-    $project->invoices = DB::table('project_invoices')
-        ->where('project_id', $id)
-        ->orderBy('created_at', 'desc')
-        ->get();
         return response()->json($project);
-}
+    }
 
     public function getByWorkCategory($id)
     {
@@ -736,19 +755,281 @@ public function storeInvoice(Request $request)
     return response()->json(['message' => 'Invoice Created Successfully']);
 }
 
-public function updateInvoiceStatus(Request $request, $id)
-{
-    $updateData = [
-        'status' => $request->status,
-        'updated_at' => now()
-    ];
 
-    if ($request->status === 'Paid') {
-        $updateData['paid_at'] = now();
+public function getTeamworkSummary()
+{
+    try {
+        // Ambil individu dengan info PT-nya dan total kasbon (outstanding)
+        $members = DB::table('users')
+            ->leftJoin('companies', 'users.company_id', '=', 'companies.id')
+            ->leftJoin('team_finances', function($join) {
+                $join->on('users.id', '=', 'team_finances.user_id')
+                     ->where('team_finances.status', '=', 'Pending');
+            })
+            ->select(
+                'users.id',
+                'users.name',
+                'users.role',
+                'users.position',
+                'companies.name as pt_owner_name',
+                DB::raw('SUM(team_finances.amount) as outstanding')
+            )
+            ->groupBy('users.id', 'users.name', 'users.role', 'users.position', 'companies.name')
+            ->get();
+
+        // Ambil ringkasan Organisasi (PT/Vendor)
+        $organizations = DB::table('companies')
+            ->select('id', 'name', 'legal_name')
+            ->get();
+        $totalProjects = DB::table('projects')->count();
+        return response()->json([
+            'individuals' => $members,
+            'organizations' => $organizations,
+            'total_projects' => $totalProjects // Kirim angka asli ke frontend
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+// Fungsi untuk Team Leader input kebutuhan / kasbon
+public function storeTeamFinance(Request $request)
+{
+    $request->validate([
+        'user_id' => 'required',
+        'company_id' => 'required',
+        'amount' => 'required|numeric',
+        'type' => 'required'
+    ]);
+
+    DB::table('team_finances')->insert([
+        'user_id' => $request->user_id,
+        'company_id' => $request->company_id,
+        'amount' => $request->amount,
+        'type' => $request->type,
+        'description' => $request->description,
+        'status' => 'Pending',
+        'transaction_date' => now(),
+        'created_at' => now()
+    ]);
+
+    // LOGIKA ACCOUNTING OTOMATIS: 
+    // Di sini nanti bisa ditambahkan trigger untuk masuk ke tabel accounting_journals
+    
+    return response()->json(['message' => 'Finance Record Added']);
+}
+public function getTopOutstanding()
+{
+    // Mengambil top 3 kasbon tim yang masih pending
+    $data = DB::table('team_finances')
+        ->join('users', 'team_finances.user_id', '=', 'users.id')
+        // Join ke projects untuk tahu duit ini dipakai di mana
+        ->leftJoin('projects', 'team_finances.project_id', '=', 'projects.id')
+        ->select(
+            'users.name as member_name',
+            'projects.project_title',
+            'team_finances.amount',
+            'team_finances.id'
+        )
+        ->where('team_finances.status', 'Pending')
+        ->where('team_finances.type', 'Kasbon')
+        ->orderBy('team_finances.amount', 'desc')
+        ->limit(3)
+        ->get();
+
+    return response()->json($data);
+}
+    public function getCompanies()
+    {
+        return response()->json(DB::table('companies')->orderBy('id', 'asc')->get());
     }
 
-    DB::table('project_invoices')->where('id', $id)->update($updateData);
+// Tambahkan juga fungsi placeholder ini agar tidak error saat di-save
+public function storeCompany(Request $request)
+{
+    $request->validate(['name' => 'required']);
+    DB::table('companies')->insert([
+        'name' => $request->name,
+        'legal_name' => $request->legal_name,
+        'created_at' => now()
+    ]);
+    return response()->json(['message' => 'Company created']);
+}
+    public function getConsolidatedFinance(Request $request)
+    {
+        try {
+            $ptId = $request->query('pt_id');
 
-    return response()->json(['message' => 'Payment Status Updated']);
+            // 1. Revenue (Invoice Paid)
+            $queryRevenue = DB::table('project_invoices')->where('status', 'Paid');
+            if ($ptId && $ptId !== 'all') {
+                $queryRevenue->whereIn('project_id', function($q) use ($ptId) {
+                    $q->select('id')->from('projects')->where('company_id', $ptId);
+                });
+            }
+            $totalRevenue = $queryRevenue->sum('amount');
+
+            // 2. Expenses (Purchasing + Workorders)
+            $queryPurchasing = DB::table('project_purchasings');
+            $queryWorkorders = DB::table('work_orders');
+            
+            if ($ptId && $ptId !== 'all') {
+                $queryPurchasing->whereIn('project_id', function($q) use ($ptId) {
+                    $q->select('id')->from('projects')->where('company_id', $ptId);
+                });
+                $queryWorkorders->whereIn('project_id', function($q) use ($ptId) {
+                    $q->select('id')->from('projects')->where('company_id', $ptId);
+                });
+            }
+            
+            $totalExpenses = $queryPurchasing->sum('total_price') + $queryWorkorders->sum('budget');
+            $totalReceivable = DB::table('project_invoices')->where('status', 'Unpaid')->sum('amount');
+
+            // 3. PT Performance Breakdown (Integrated)
+            $ptPerformance = DB::table('companies')
+                ->select('id', 'name')
+                ->get()
+                ->map(function($pt) {
+                    $projectIds = DB::table('projects')->where('company_id', $pt->id)->pluck('id');
+                    $rev = DB::table('project_invoices')->whereIn('project_id', $projectIds)->where('status', 'Paid')->sum('amount');
+                    $exp = DB::table('project_purchasings')->whereIn('project_id', $projectIds)->sum('total_price') 
+                         + DB::table('work_orders')->whereIn('project_id', $projectIds)->sum('budget');
+                    
+                    return [
+                        'id' => $pt->id,
+                        'name' => $pt->name,
+                        'project_count' => $projectIds->count(),
+                        'revenue' => (float)$rev,
+                        'expense' => (float)$exp,
+                        'profit' => (float)($rev - $exp),
+                        'margin' => $rev > 0 ? round((($rev - $exp) / $rev) * 100, 1) : 0
+                    ];
+                });
+
+            return response()->json([
+                'total_revenue' => (float)$totalRevenue,
+                'total_expense' => (float)$totalExpenses,
+                'total_receivable' => (float)$totalReceivable,
+                'net_profit' => (float)($totalRevenue - $totalExpenses),
+                'pt_performance' => $ptPerformance,
+                'active_projects_count' => DB::table('projects')->where('status', '!=', 'Finish')->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    public function getPTPerformance()
+    {
+        try {
+            $performance = DB::table('companies')
+                ->select('id', 'name')
+                ->get()
+                ->map(function($pt) {
+                    $projectIds = DB::table('projects')->where('company_id', $pt->id)->pluck('id');
+                    $revenue = DB::table('project_invoices')->whereIn('project_id', $projectIds)->where('status', 'Paid')->sum('amount');
+                    $expense = DB::table('project_purchasings')->whereIn('project_id', $projectIds)->sum('total_price') 
+                             + DB::table('work_orders')->whereIn('project_id', $projectIds)->sum('budget');
+
+                    return [
+                        'id' => $pt->id,
+                        'name' => $pt->name,
+                        'project_count' => $projectIds->count(),
+                        'revenue' => (float)$revenue,
+                        'expense' => (float)$expense,
+                        'profit' => (float)($revenue - $expense)
+                    ];
+                });
+
+            return response()->json($performance);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getCOAs(Request $request)
+    {
+        $query = DB::table('accounting_coas');
+        if ($request->has('pt_id') && $request->pt_id !== 'all') {
+            $query->where('pt_id', $request->pt_id);
+        }
+        return response()->json($query->orderBy('code', 'asc')->get());
+    }
+
+    public function storeCOA(Request $request)
+    {
+        $request->validate(['code' => 'required', 'name' => 'required', 'category' => 'required']);
+        DB::table('accounting_coas')->insert([
+            'pt_id' => $request->pt_id,
+            'code' => $request->code,
+            'name' => $request->name,
+            'category' => $request->category,
+            'header_id' => $request->header_id,
+            'created_at' => now()
+        ]);
+        return response()->json(['message' => 'COA Account Created']);
+    }
+
+    public function getJournals(Request $request)
+    {
+        $query = DB::table('accounting_journals')
+            ->leftJoin('accounting_coas', 'accounting_journals.coa_id', '=', 'accounting_coas.id')
+            ->select('accounting_journals.*', 'accounting_coas.name as coa_name', 'accounting_coas.code as coa_code');
+
+        if ($request->has('pt_id') && $request->pt_id !== 'all') {
+            $query->where('accounting_journals.pt_id', $request->pt_id);
+        }
+        return response()->json($query->orderBy('transaction_date', 'desc')->get());
+    }
+
+
+    public function updateInvoiceStatus(Request $request, $id)
+    {
+        $updateData = ['status' => $request->status, 'updated_at' => now()];
+        if ($request->status === 'Paid') { $updateData['paid_at'] = now(); }
+        DB::table('project_invoices')->where('id', $id)->update($updateData);
+        return response()->json(['message' => 'Payment Status Updated']);
+    }
+public function getCashFlow(Request $request)
+{
+    try {
+        $ptId = $request->query('pt_id');
+        
+        $query = DB::table('accounting_journals')
+            ->leftJoin('accounting_coas', 'accounting_journals.coa_id', '=', 'accounting_coas.id')
+            ->leftJoin('projects', 'accounting_journals.project_id', '=', 'projects.id')
+            ->leftJoin('companies', 'accounting_journals.pt_id', '=', 'companies.id')
+            ->select(
+                'accounting_journals.*',
+                'accounting_coas.name as account_name',
+                'projects.project_title',
+                'companies.name as company_name'
+            );
+
+        if ($ptId && $ptId !== 'all') {
+            $query->where('accounting_journals.pt_id', $ptId);
+        }
+
+        $history = $query->orderBy('transaction_date', 'desc')->limit(100)->get();
+
+        // Menggunakan SUM dengan casting float dan default 0
+        $totalIn = (float)DB::table('accounting_journals')
+            ->where(fn($q) => ($ptId && $ptId !== 'all') ? $q->where('pt_id', $ptId) : $q)
+            ->sum('debit') ?: 0;
+
+        $totalOut = (float)DB::table('accounting_journals')
+            ->where(fn($q) => ($ptId && $ptId !== 'all') ? $q->where('pt_id', $ptId) : $q)
+            ->sum('credit') ?: 0;
+
+        return response()->json([
+            'history' => $history,
+            'summary' => [
+                'total_inflow' => $totalIn,
+                'total_outflow' => $totalOut,
+                'net_flow' => $totalIn - $totalOut
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
 }
 }

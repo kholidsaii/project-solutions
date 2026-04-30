@@ -795,10 +795,11 @@ public function getTeamworkSummary()
                 'users.name',
                 'users.role',
                 'users.position',
+                'users.company_id', // <--- TAMBAHKAN BARIS INI
                 'companies.name as pt_owner_name',
-                DB::raw('SUM(team_finances.amount) as outstanding')
+                DB::raw('COALESCE(SUM(team_finances.amount), 0) as outstanding')
             )
-            ->groupBy('users.id', 'users.name', 'users.role', 'users.position', 'companies.name')
+            ->groupBy('users.id', 'users.name', 'users.role', 'users.position', 'users.company_id', 'companies.name')
             ->get();
 
         // Ambil ringkasan Organisasi (PT/Vendor)

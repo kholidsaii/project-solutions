@@ -70,17 +70,21 @@ const fetchData = async () => {
   try {
     const [resSummary, resInd, resTop, resComp] = await Promise.all([
       api.get('/teamwork/summary'),
-      api.get('/users'),
+      api.get('/users'), // <-- Pastikan ini endpoint yang benar
       api.get('/teamwork/top-outstanding'),
       api.get('/companies')
     ]);
 
+    // Update state
     organizations.value = resSummary.data.organizations || [];
     totalProjectCount.value = resSummary.data.total_projects || 0;
-    individuals.value = resInd.data || [];
-    topOutstanding.value = resTop.data || []; 
+    
+    // PENTING: Pastikan individuals diisi dari resInd.data
+    individuals.value = resInd.data || []; 
+    
     allCompanies.value = resComp.data || [];
     
+    console.log("Data Users Ter-load:", individuals.value);
   } catch (e) {
     console.error("Gagal sinkronisasi teamwork", e);
   } finally {
@@ -154,7 +158,44 @@ const handleEditMaster = (item: any) => {
 const openFinanceModal = (item: any) => {
   alert(`Buka monitoring finansial untuk: ${item.name}\nSaldo Outstanding: ${formatCurrency(item.outstanding)}`);
 };
+// Tambahkan di bagian Script Setup
+// ==========================================
+// NEW: LOGIC ANALYTICS DETAIL
+// ==========================================
 
+// 1. Menghitung distribusi project per PT (untuk Chart)
+const ptDistributionData = computed(() => {
+  return allCompanies.value.map(pt => {
+    // Filter staff berdasarkan company_id yang baru saja masuk
+    const staffCount = individuals.value.filter(i => 
+      i.company_id !== null && Number(i.company_id) === Number(pt.id)
+    ).length;
+    
+    // Total staff untuk kalkulasi bar (saat ini 5 orang)
+    const totalStaffGlobal = individuals.value.length || 1;
+    debugger
+    return {
+      name: pt.name,
+      staff: staffCount,
+      // Jika ada staff (misal 2 orang), maka (2/5)*100 = 40%
+      // Kita beri minimal 25% agar visualnya tetap nendang
+      power: staffCount > 0 ? Math.max((staffCount / totalStaffGlobal) * 100, 25) : 0
+    };
+  });
+});
+
+// 2. Menghitung total beban kasbon grup
+const totalOutstandingGroup = computed(() => {
+  return individuals.value.reduce((sum, item) => sum + (parseFloat(item.outstanding) || 0), 0);
+});
+
+// 3. Status Kesehatan Finansial Tim
+const healthStatus = computed(() => {
+  const ratio = totalOutstandingGroup.value / (totalProjectCount.value * 10000000); // Rasio sederhana
+  if (ratio < 0.2) return { label: 'Excellent', class: 'text-emerald-400', icon: 'fa-shield-check' };
+  if (ratio < 0.5) return { label: 'Warning', class: 'text-amber-400', icon: 'fa-exclamation-triangle' };
+  return { label: 'Critical', class: 'text-rose-400', icon: 'fa-skull-crossbones' };
+});
 onMounted(fetchData);
 </script>
 <template>
@@ -196,65 +237,159 @@ onMounted(fetchData);
       </div>
 
       <!-- CONTENT: ANALYTICS -->
-      <div v-if="currentTab === 'analytics'" class="animate-in fade-in duration-500 py-8 space-y-8">
-        <!-- STATS CARDS -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div v-for="s in stats" :key="s.label" :class="s.color" class="p-6 rounded-[2rem] text-white shadow-lg relative overflow-hidden group">
-            <i class="fas opacity-10 text-6xl absolute -right-4 -bottom-4 group-hover:scale-125 transition-transform" :class="s.icon"></i>
-            <p class="text-3xl font-black mb-1">{{ s.value }}</p>
-            <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">{{ s.label }}</p>
-          </div>
+      <!-- CONTENT: ANALYTICS (SUPER DETAILED VERSION) -->
+<div v-if="currentTab === 'analytics'" class="animate-in fade-in zoom-in duration-700 py-8 space-y-10 pb-24">
+  
+  <!-- ROW 1: CORE METRICS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+    <div v-for="s in stats" :key="s.label" 
+         class="p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group transition-all hover:-translate-y-2"
+         :class="s.color">
+      <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <i class="fas opacity-10 text-7xl absolute -right-4 -bottom-4 transform group-hover:scale-110 transition-transform" :class="s.icon"></i>
+      
+      <p class="text-[10px] font-black opacity-70 uppercase tracking-[0.2em] mb-4">{{ s.label }}</p>
+      <div class="flex items-baseline gap-2">
+        <h3 class="text-4xl font-black italic tracking-tighter">{{ s.value }}</h3>
+        <span class="text-[10px] font-bold opacity-60">Units</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: INTERACTIVE POWER MATRIX -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- LEFT: PT POWER DISTRIBUTION -->
+    <div class="lg:col-span-8 bg-white border border-slate-200 rounded-[3.5rem] p-12 shadow-sm relative overflow-hidden">
+      <div class="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
+        <i class="fas fa-network-wired text-[15rem]"></i>
+      </div>
+
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+        <div>
+          <h3 class="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Organization Power Distribution</h3>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Resource allocation mapping for 7 Entities</p>
         </div>
+        <div class="px-5 py-2 bg-indigo-50 rounded-full border border-indigo-100 text-[9px] font-black text-indigo-600 uppercase tracking-widest">
+          Live Sync: Active
+        </div>
+      </div>
 
-        <!-- RELASI PROJECT & FINANCE (MOCKUP VISUAL) -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div class="lg:col-span-8 bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm">
-            <div class="flex justify-between items-center mb-10">
-              <h3 class="text-lg font-black text-slate-800 uppercase italic">Organization Power Distribution</h3>
-              <span class="text-[10px] font-bold text-slate-400 uppercase">Monitoring 7 PT Bos</span>
+      <!-- POWER BARS (Dynamic Visual) -->
+      <div class="space-y-8 relative z-10">
+        <div v-for="pt in ptDistributionData" :key="pt.name" class="space-y-3 group">
+          <div class="flex justify-between items-end">
+            <div class="flex items-center gap-3">
+              <div class="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+              <span class="text-[11px] font-black text-slate-700 uppercase tracking-tight">{{ pt.name }}</span>
             </div>
-            <!-- Di sini nanti akan ada Chart kontribusi PT terhadap Project -->
-            <div class="h-64 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center">
-               <p class="text-slate-400 font-bold text-xs">PT Power Chart (Integration with Finance)</p>
-            </div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase">{{ pt.staff }} Personnel Assigned</span>
           </div>
-          
-          <!-- Bagian Sidebar Kasbon di Teamwork.vue -->
-          <div class="lg:col-span-4 bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl">
-              <h3 class="text-sm font-black uppercase mb-6 text-indigo-400 italic">
-                  <i class="fas fa-wallet mr-2"></i> Total Outstanding
-              </h3>
-              
-              <div class="space-y-6">
-                  <!-- Loop data dari API -->
-                  <div v-for="item in topOutstanding" :key="item.id" class="flex justify-between items-center group">
-                      <div>
-                          <p class="text-[11px] font-black uppercase tracking-tight group-hover:text-indigo-300 transition-colors">
-                              {{ item.member_name }}
-                          </p>
-                          <p class="text-[9px] text-slate-500 uppercase font-bold">
-                              Project: {{ item.project_title || 'General / Internal' }}
-                          </p>
-                      </div>
-                      <div class="text-right">
-                          <p class="text-rose-400 font-black text-sm">{{ formatCurrency(item.amount) }}</p>
-                      </div>
-                  </div>
-
-                  <!-- Jika Data Kosong -->
-                  <div v-if="topOutstanding.length === 0" class="text-center py-4 border border-dashed border-slate-800 rounded-2xl opacity-30">
-                      <p class="text-[9px] font-bold uppercase tracking-widest">No outstanding kasbon</p>
-                  </div>
-
-                  <hr class="border-slate-800">
-                  
-                  <button class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-900/20 transition-all active:scale-95">
-                      Process Settlement
-                  </button>
-              </div>
+          <div class="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+            <div class="h-full bg-gradient-to-r from-indigo-500 to-blue-400 transition-all duration-1000 ease-out group-hover:brightness-110"
+                 :style="{ width: pt.power + '%' }">
+              <div class="w-full h-full animate-pulse bg-white/10"></div>
+            </div>
           </div>
         </div>
       </div>
+
+      <div class="mt-12 pt-8 border-t border-slate-50 flex gap-10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm shadow-sm">
+            <i class="fas fa-bolt"></i>
+          </div>
+          <div>
+            <p class="text-[14px] font-black text-slate-800 italic leading-none">High Productivity</p>
+            <p class="text-[8px] font-bold text-slate-400 uppercase mt-1">Status Overview</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm shadow-sm">
+            <i class="fas fa-users-cog"></i>
+          </div>
+          <div>
+            <p class="text-[14px] font-black text-slate-800 italic leading-none">{{ individuals.length }} Experts</p>
+            <p class="text-[8px] font-bold text-slate-400 uppercase mt-1">Total Manpower</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RIGHT: FINANCIAL RISK SIDEBAR -->
+    <div class="lg:col-span-4 space-y-8">
+      
+      <!-- CARD: GROUP SETTLEMENT HEALTH -->
+      <div class="bg-slate-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden group">
+        <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-transparent"></div>
+        
+        <div class="relative z-10">
+          <div class="flex justify-between items-start mb-8">
+            <h3 class="text-sm font-black uppercase text-indigo-400 italic tracking-widest">
+               <i class="fas fa-wallet mr-2"></i> Debt Control
+            </h3>
+            <i class="fas fa-fingerprint text-slate-700 text-2xl"></i>
+          </div>
+
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Group Outstanding</p>
+          <h4 class="text-3xl font-black italic tracking-tighter mb-6 text-rose-400">
+            {{ formatCurrency(totalOutstandingGroup) }}
+          </h4>
+
+          <div class="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
+             <div class="flex justify-between items-center">
+               <span class="text-[9px] font-black uppercase text-slate-400">Team Health</span>
+               <span :class="healthStatus.class" class="text-[10px] font-black uppercase flex items-center gap-2">
+                 <i class="fas" :class="healthStatus.icon"></i> {{ healthStatus.label }}
+               </span>
+             </div>
+             <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+               <div class="h-full bg-indigo-500 transition-all duration-1000" :style="{ width: '65%' }"></div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD: TOP DEBTORS LIST -->
+      <div class="bg-white border border-slate-200 rounded-[3rem] p-10 shadow-sm">
+        <h3 class="text-[11px] font-black text-slate-800 uppercase italic tracking-widest mb-8 border-b border-slate-50 pb-4">
+          Top Settlement Required
+        </h3>
+        
+        <div class="space-y-6">
+            <div v-for="item in topOutstanding" :key="item.id" class="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-2xl transition-all">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-[10px]">
+                    {{ item.member_name.substring(0,2).toUpperCase() }}
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-black uppercase text-slate-700 tracking-tight group-hover:text-indigo-600 transition-colors">
+                        {{ item.member_name }}
+                    </p>
+                    <p class="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">
+                        {{ item.project_title || 'General / Internal' }}
+                    </p>
+                  </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-rose-500 font-black text-[12px] italic">{{ formatCurrency(item.amount) }}</p>
+                </div>
+            </div>
+
+            <div v-if="topOutstanding.length === 0" class="text-center py-12 opacity-20">
+                <i class="fas fa-box-open text-4xl mb-4"></i>
+                <p class="text-[10px] font-bold uppercase tracking-widest">No outstanding</p>
+            </div>
+
+            <button class="w-full bg-slate-50 hover:bg-slate-100 text-slate-400 py-4 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] transition-all border border-slate-100">
+                View All Records
+            </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
       <!-- CONTENT: LIST VIEW (Entities/PT) -->
       <div v-if="currentTab === 'entities' || currentTab === 'members'" class="py-8 animate-in slide-in-from-bottom-4">

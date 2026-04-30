@@ -701,22 +701,46 @@ public function storePurchasing(Request $request)
         'quantity'   => 'required|numeric',
     ]);
 
-    DB::table('project_purchasings')->insert([
-        'project_id'    => $request->project_id,
-        'user_id'       => Auth::id(),
-        'item_name'     => $request->item_name,
-        'vendor_name'   => $request->vendor_name,
-        'amount'        => $request->amount,
-        'quantity'      => $request->quantity,
-        'total_price'   => $request->amount * $request->quantity,
-        'purchase_date' => $request->purchase_date ?? now(),
-        'status'        => 'Pending',
-        'notes'         => $request->notes,
-        'created_at'    => now(),
-        'updated_at'    => now()
-    ]);
+    try {
+        DB::beginTransaction();
 
-    return response()->json(['message' => 'Purchase Record Saved']);
+        $totalPrice = $request->amount * $request->quantity;
+        $project = DB::table('projects')->where('id', $request->project_id)->first();
+
+        // 1. Simpan ke tabel Purchasing
+        $purId = DB::table('project_purchasings')->insertGetId([
+            'project_id'   => $request->project_id,
+            'user_id'      => Auth::id(),
+            'item_name'    => $request->item_name,
+            'vendor_name'  => $request->vendor_name,
+            'amount'       => $request->amount,
+            'quantity'     => $request->quantity,
+            'total_price'  => $totalPrice,
+            'purchase_date'=> $request->purchase_date ?? now(),
+            'status'       => 'Paid', // Langsung dianggap Paid untuk operasional
+            'created_at'   => now(),
+            'updated_at'   => now()
+        ]);
+
+        // 2. LOGIKA OTOMATIS JURNAL: Catat Pengeluaran
+        DB::table('accounting_journals')->insert([
+            'pt_id' => $project->company_id,
+            'project_id' => $project->id,
+            'coa_id' => 4, // ID COA untuk Beban Operasional
+            'transaction_date' => $request->purchase_date ?? now(),
+            'description' => "BELANJA: " . $request->item_name,
+            'debit' => 0,
+            'credit' => (float)$totalPrice,
+            'reference_type' => 'Purchasing',
+            'created_at' => now()
+        ]);
+
+        DB::commit();
+        return response()->json(['message' => 'Purchase Record Saved & Journaled']);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
 }
 public function deletePurchasing($id)
 {
@@ -982,13 +1006,44 @@ public function storeCompany(Request $request)
     }
 
 
-    public function updateInvoiceStatus(Request $request, $id)
-    {
+public function updateInvoiceStatus(Request $request, $id)
+{
+    try {
+        DB::beginTransaction();
+
+        $invoice = DB::table('project_invoices')->where('id', $id)->first();
+        if (!$invoice) return response()->json(['message' => 'Invoice not found'], 404);
+
         $updateData = ['status' => $request->status, 'updated_at' => now()];
-        if ($request->status === 'Paid') { $updateData['paid_at'] = now(); }
+        if ($request->status === 'Paid') { 
+            $updateData['paid_at'] = now(); 
+
+            // AMBIL INFO PROJECT UNTUK TAHU PT MANA YANG PUNYA
+            $project = DB::table('projects')->where('id', $invoice->project_id)->first();
+
+            // LOGIKA OTOMATIS JURNAL: Catat Pendapatan
+            DB::table('accounting_journals')->insert([
+                'pt_id' => $project->company_id,
+                'project_id' => $project->id,
+                'coa_id' => 3, // ID COA untuk Pendapatan Project (Sesuai seeding kita tadi)
+                'transaction_date' => now(),
+                'description' => "PELUNASAN: " . $invoice->title,
+                'debit' => (float)$invoice->amount,
+                'credit' => 0,
+                'reference_type' => 'Invoice',
+                'created_at' => now()
+            ]);
+        }
+
         DB::table('project_invoices')->where('id', $id)->update($updateData);
-        return response()->json(['message' => 'Payment Status Updated']);
+        
+        DB::commit();
+        return response()->json(['message' => 'Payment Status Updated & Journaled']);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 public function getCashFlow(Request $request)
 {
     try {

@@ -83,15 +83,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
 
     // --- 3. FINANCE & ACCOUNTING ---
-    Route::get('/finance/consolidated', [ProjectController::class, 'getConsolidatedFinance']);
     Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);
-    Route::get('/accounting/coas', [ProjectController::class, 'getCOAs']);
-    Route::post('/accounting/coas', [ProjectController::class, 'storeCOA']);
-    Route::get('/accounting/journals', [ProjectController::class, 'getJournals']);
     Route::post('/project-invoices', [ProjectController::class, 'storeInvoice']);
     Route::put('/project-invoices/{id}/status', [ProjectController::class, 'updateInvoiceStatus']);
 
     // --- 4. CATALOG ---
-    Route::get('/products-catalog', [ProjectController::class, 'getCatalog']);
+    Route::get('/finance/consolidated', [ProjectController::class, 'getConsolidatedFinance']);
+    Route::get('/accounting/coas', [ProjectController::class, 'getCOAs']);
+    Route::post('/accounting/coas', [ProjectController::class, 'storeCOA']);
+    // Gunakan yang ini agar sesuai dengan pemanggilan di Vue
+    Route::get('/accounting/ledger', [ProjectController::class, 'getJournals']); 
     Route::get('/finance/cashflow', [ProjectController::class, 'getCashFlow']);
+
+    // Project Invoices
+    Route::post('/project-invoices', [ProjectController::class, 'storeInvoice']);
+    Route::put('/project-invoices/{id}/status', [ProjectController::class, 'updateInvoiceStatus']);
 });

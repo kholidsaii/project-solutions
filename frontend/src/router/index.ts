@@ -20,6 +20,7 @@ const routes = [
   { path: '/activity', name: 'Activity', component: () => import('../views/Activity.vue'), meta: { requiresAuth: true } },
   { path: '/financial', name: 'Financial', component: () => import('../views/Financial.vue'), meta: { requiresAuth: true } },
   { path: '/teamwork', name: 'Teamwork', component: () => import('../views/Teamwork.vue'), meta: { requiresAuth: true } },
+  { path: '/accounting', name: 'Accounting', component: () => import('../views/Accounting.vue'), meta: { requiresAuth: true } },
   { path: '/documents', name: 'Documents', component: () => import('../views/Documents.vue'), meta: { requiresAuth: true } },
   { path: '/support', name: 'Support', component: () => import('../views/Support.vue'), meta: { requiresAuth: true } },
   { path: '/reports', name: 'Reports', component: () => import('../views/Reports.vue'), meta: { requiresAuth: true } },

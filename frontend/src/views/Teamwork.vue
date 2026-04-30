@@ -68,23 +68,21 @@ const stats = computed(() => [
 const fetchData = async () => {
   isLoading.value = true;
   try {
-    const [resSummary, resInd, resComp] = await Promise.all([
+    const [resSummary, resInd, resTop, resComp] = await Promise.all([
       api.get('/teamwork/summary'),
-      api.get('/users'), // <-- Pastikan ini endpoint yang benar
+      api.get('/users'),
       api.get('/teamwork/top-outstanding'),
       api.get('/companies')
     ]);
 
-    // Update state
     organizations.value = resSummary.data.organizations || [];
     totalProjectCount.value = resSummary.data.total_projects || 0;
+    individuals.value = resInd.data || [];
     
-    // PENTING: Pastikan individuals diisi dari resInd.data
-    individuals.value = resInd.data || []; 
+    // GUNAKAN resTop DI SINI AGAR ERROR TS HILANG
+    topOutstanding.value = resTop.data || []; 
     
     allCompanies.value = resComp.data || [];
-    
-    console.log("Data Users Ter-load:", individuals.value);
   } catch (e) {
     console.error("Gagal sinkronisasi teamwork", e);
   } finally {
@@ -425,69 +423,69 @@ onMounted(fetchData);
         </div>
 
         <!-- DRILL-DOWN MODAL -->
-        <div v-if="showDrilldownModal" class="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
-          <div class="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+      <div v-if="showDrilldownModal" class="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
+        <div class="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+          
+          <!-- Modal Header -->
+          <div class="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <div class="flex items-center gap-6">
+              <div class="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-2xl shadow-xl">
+                <i class="fas fa-building"></i>
+              </div>
+              <div>
+                <h3 class="text-2xl font-black text-slate-800 uppercase italic">{{ selectedPTDetail?.name }}</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ selectedPTDetail?.legal_name }}</p>
+              </div>
+            </div>
+            <button @click="showDrilldownModal = false" class="w-12 h-12 rounded-full hover:bg-slate-200 transition-colors flex items-center justify-center">
+              <i class="fas fa-times text-slate-400"></i>
+            </button>
+          </div>
+
+          <!-- Modal Content -->
+          <div class="p-10 grid grid-cols-1 md:grid-cols-3 gap-10">
             
-            <!-- Modal Header -->
-            <div class="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <div class="flex items-center gap-6">
-                <div class="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-2xl shadow-xl">
-                  <i class="fas fa-building"></i>
-                </div>
-                <div>
-                  <h3 class="text-2xl font-black text-slate-800 uppercase italic">{{ selectedPTDetail?.name }}</h3>
-                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ selectedPTDetail?.legal_name }}</p>
-                </div>
+            <!-- Stats Summary -->
+            <div class="space-y-6">
+              <div class="bg-indigo-600 p-6 rounded-[2rem] text-white">
+                <p class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">Active Projects</p>
+                <h4 class="text-3xl font-black italic">{{ selectedPTDetail?.project_count }} Units</h4>
               </div>
-              <button @click="showDrilldownModal = false" class="w-12 h-12 rounded-full hover:bg-slate-200 transition-colors flex items-center justify-center">
-                <i class="fas fa-times text-slate-400"></i>
-              </button>
+              <div class="bg-emerald-500 p-6 rounded-[2rem] text-white">
+                <p class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">Reimburse Estimation</p>
+                <h4 class="text-2xl font-black italic">{{ formatCurrency(selectedPTDetail?.total_reimburse) }}</h4>
+              </div>
             </div>
 
-            <!-- Modal Content -->
-            <div class="p-10 grid grid-cols-1 md:grid-cols-3 gap-10">
-              
-              <!-- Stats Summary -->
-              <div class="space-y-6">
-                <div class="bg-indigo-600 p-6 rounded-[2rem] text-white">
-                  <p class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">Active Projects</p>
-                  <h4 class="text-3xl font-black italic">{{ selectedPTDetail?.project_count }} Units</h4>
-                </div>
-                <div class="bg-emerald-500 p-6 rounded-[2rem] text-white">
-                  <p class="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">Reimburse Estimation</p>
-                  <h4 class="text-2xl font-black italic">{{ formatCurrency(selectedPTDetail?.total_reimburse) }}</h4>
-                </div>
-              </div>
-
-              <!-- Members List -->
-              <div class="md:col-span-2 space-y-6">
-                <h4 class="text-xs font-black uppercase text-slate-400 tracking-widest border-b border-slate-50 pb-4">Assigned Experts</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2">
-                  <div v-for="m in selectedPTDetail?.members" :key="m.id" class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-black text-indigo-600 shadow-sm uppercase">
-                      {{ m.name.substring(0,2) }}
-                    </div>
-                    <div>
-                      <p class="text-[11px] font-black text-slate-800 uppercase">{{ m.name }}</p>
-                      <p class="text-[9px] font-bold text-slate-400 uppercase italic">{{ m.position || 'Specialist' }}</p>
-                    </div>
+            <!-- Members List -->
+            <div class="md:col-span-2 space-y-6">
+              <h4 class="text-xs font-black uppercase text-slate-400 tracking-widest border-b border-slate-50 pb-4">Assigned Experts</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2">
+                <div v-for="m in selectedPTDetail?.members" :key="m.id" class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-black text-indigo-600 shadow-sm uppercase">
+                    {{ m.name.substring(0,2) }}
                   </div>
-                  <div v-if="selectedPTDetail?.members.length === 0" class="col-span-2 py-10 text-center opacity-30">
-                    <p class="text-[10px] font-black uppercase tracking-widest">No members assigned to this entity</p>
+                  <div>
+                    <p class="text-[11px] font-black text-slate-800 uppercase">{{ m.name }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase italic">{{ m.position || 'Specialist' }}</p>
                   </div>
                 </div>
+                <div v-if="selectedPTDetail?.members.length === 0" class="col-span-2 py-10 text-center opacity-30">
+                  <p class="text-[10px] font-black uppercase tracking-widest">No members assigned to this entity</p>
+                </div>
               </div>
-
             </div>
 
-            <!-- Modal Footer -->
-            <div class="p-8 bg-slate-50 flex justify-end">
-              <button class="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-95 transition-all">
-                View Detailed Audit Trail
-              </button>
-            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="p-8 bg-slate-50 flex justify-end">
+            <button class="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-95 transition-all">
+              View Detailed Audit Trail
+            </button>
           </div>
         </div>
+      </div>
       </div>
 
       <!-- CONTENT: LIST VIEW (Entities/PT) -->

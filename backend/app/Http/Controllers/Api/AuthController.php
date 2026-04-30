@@ -45,39 +45,35 @@ class AuthController extends Controller
     }
 
     public function register(Request $request)
-    {
-        $data = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6',
-            'role' => 'required'
-        ]);
+{
+    $data = $request->validate([
+        'name' => 'required|string',
+        'email' => 'required|email|unique:users',
+        'password' => 'required|min:6',
+        'role' => 'required',
+        'company_id' => 'nullable|exists:companies,id', // Tambahkan ini
+        'position' => 'nullable|string'                // Tambahkan ini
+    ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => bcrypt($data['password']),
-            'role' => $data['role']
-        ]);
+    $user = User::create([
+        'name' => $data['name'],
+        'email' => $data['email'],
+        'password' => bcrypt($data['password']),
+        'role' => $data['role'],
+        'company_id' => $request->company_id, // Simpan ke DB
+        'position' => $request->position      // Simpan ke DB
+    ]);
 
-        // CATAT LOG REGISTER
-        AuditLog::create([
-            'user_id'     => Auth::id(), // ID Admin yang sedang login
-            'user_name'   => Auth::user()->name ?? 'System',
-            'action'      => 'REGISTER_USER',
-            'description' => "Menambahkan user baru: " . $data['name'] . " (" . $data['role'] . ")",
-            'ip_address'  => $request->ip()
-        ]);
-
-        return response()->json(['message' => 'User berhasil ditambahkan!', 'user' => $user]);
-    }
+    // ... sisa kode log ...
+}
 // 1. Ambil semua daftar user untuk halaman Teamwork
     public function index()
     {
         try {
-            $users = User::select('id', 'name', 'email', 'role', 'created_at')
-                         ->orderBy('created_at', 'desc')
-                         ->get();
+            // TAMBAHKAN company_id dan position di sini Lid!
+            $users = User::select('id', 'name', 'email', 'role', 'company_id', 'position', 'created_at')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
             return response()->json($users, 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Gagal mengambil data user'], 500);

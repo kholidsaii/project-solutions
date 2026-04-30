@@ -1140,6 +1140,7 @@ const updateDetail = async () => {
       priority: project.value.priority,
       package: project.value.package,
       category_id: project.value.category_id,
+      company_id: project.value.company_id,
     });
     
     console.log("Laporan project berhasil diperbarui secara otomatis");

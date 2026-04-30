@@ -440,6 +440,7 @@ class ProjectController extends Controller
                 'status'          => $request->status,
                 'priority'        => $request->priority,
                 'package'         => $request->package,
+                'company_id'      => $request->company_id,
                 'updated_at'      => now()
             ];
 

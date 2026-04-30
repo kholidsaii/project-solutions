@@ -22,7 +22,8 @@ class User extends Authenticatable
     'name',
     'email',
     'password',
-    'role', // Tambahkan ini biar role-nya bisa disimpan,!
+    'role',
+    'company_id', // Tambahkan ini biar role-nya bisa disimpan,!
 ];
 
     /**

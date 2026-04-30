@@ -60,15 +60,31 @@
                     <div>
                         <h4 class="text-[11px] font-black text-blue-800 mb-4 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Project Identity</h4>
                         <div class="space-y-3 pl-4">
-                        <div class="flex flex-col">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase">Project Name</span>
-                            <input v-model="project.project_title" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase">Customer / Client</span>
-                            <input v-model="project.client_name" @change="updateDetail" class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
-                        </div>
-                        </div>
+                    <!-- FIELD 1: PROJECT NAME -->
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Project Name</span>
+                        <input v-model="project.project_title" @change="updateDetail" 
+                            class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
+                    </div>
+
+                    <!-- FIELD 2: AFFILIATED PT (UNTUK PINDAH PT) -->
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Affiliated PT (Owner)</span>
+                        <select v-model="project.company_id" @change="updateDetail" 
+                            class="text-[11px] font-black text-blue-800 uppercase bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none transition-all py-1 cursor-pointer appearance-none">
+                            <option :value="null">-- INDEPENDENT / NO PT --</option>
+                            <!-- allCompanies harus di-fetch di onMounted -->
+                            <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
+                        </select>
+                    </div>
+
+                    <!-- FIELD 3: CUSTOMER -->
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Customer / Client</span>
+                        <input v-model="project.client_name" @change="updateDetail" 
+                            class="text-[11px] font-black text-slate-800 uppercase bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none transition-all py-1">
+                    </div>
+                </div>
                     </div>
 
                     <div>
@@ -840,82 +856,136 @@
                     </div>
                 </div>   
 
+                <!-- TAB CONTENT: FINANCIAL -->
                 <div v-if="subTab === 'financial'" class="space-y-8 animate-in fade-in zoom-in duration-500">
-  
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <!-- TOP ANALYTICS CARDS -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- 1. GROSS REVENUE -->
                         <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 text-slate-50 opacity-10 group-hover:scale-110 transition-transform">
-                            <i class="fas fa-hand-holding-usd text-8xl"></i>
-                        </div>
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Revenue</p>
-                        <h3 class="text-2xl font-black text-indigo-900">{{ formatCurrency(project?.contract_value) }}</h3>
-                        <div class="mt-4 flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase italic">
-                            <i class="fas fa-file-contract"></i> Initial Contract Value
-                        </div>
+                            <div class="absolute -right-4 -top-4 text-slate-50 opacity-10 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-hand-holding-usd text-7xl"></i>
+                            </div>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Revenue</p>
+                            <h3 class="text-xl font-black text-indigo-900 tracking-tighter">{{ formatCurrency(project?.contract_value) }}</h3>
+                            <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-indigo-400 uppercase italic">
+                                <i class="fas fa-file-contract"></i> Contract Value
+                            </div>
                         </div>
 
+                        <!-- 2. TOTAL OPERATIONAL COST -->
                         <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Operational Cost</p>
-                        <h3 class="text-2xl font-black text-rose-600">{{ formatCurrency(calculateTotalExpenses()) }}</h3>
-                        <div class="mt-4 flex items-center gap-2 text-[10px] font-black text-rose-400 uppercase italic">
-                            <i class="fas fa-receipt"></i> WO + Purchasing
-                        </div>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Operational Cost</p>
+                            <h3 class="text-xl font-black text-rose-600 tracking-tighter">{{ formatCurrency(calculateTotalExpenses()) }}</h3>
+                            <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-rose-400 uppercase italic">
+                                <i class="fas fa-receipt"></i> WO + Purchasing
+                            </div>
                         </div>
 
-                        <div class="p-6 rounded-3xl shadow-lg shadow-emerald-100 border border-emerald-400 relative overflow-hidden group"
+                        <!-- 3. ESTIMATED NET PROFIT -->
+                        <div class="p-6 rounded-3xl shadow-lg shadow-emerald-100 border border-emerald-400 relative overflow-hidden group transition-all"
                             :class="calculateMargin() > 0 ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
-                            
-                            <p class="text-[9px] font-black opacity-80 uppercase tracking-widest mb-1 text-white">Estimated Net Profit</p>
-                            
-                            <h3 class="text-2xl font-black">
+                            <p class="text-[9px] font-black opacity-80 uppercase tracking-widest mb-1">Estimated Net Profit</p>
+                            <h3 class="text-xl font-black tracking-tighter">
                                 {{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}
                             </h3>
-                            
-                            <div class="mt-4 flex items-center gap-2 text-[10px] font-black uppercase italic">
+                            <div class="mt-4 flex items-center gap-2 text-[9px] font-black uppercase italic">
                                 <i class="fas fa-chart-line"></i> 
                                 Margin: {{ calculateMargin().toFixed(1) }}%
                             </div>
                         </div>
+
+                        <!-- 4. REMAINING BALANCE (CASH RESERVE) -->
+                        <div class="bg-slate-900 p-6 rounded-3xl shadow-xl relative overflow-hidden group border border-slate-700">
+                            <div class="absolute -right-2 -bottom-2 text-white opacity-5 group-hover:rotate-12 transition-transform">
+                                <i class="fas fa-vault text-6xl"></i>
+                            </div>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Remaining Balance</p>
+                            <h3 class="text-xl font-black text-emerald-400 tracking-tighter">
+                                {{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}
+                            </h3>
+                            <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase italic">
+                                <i class="fas fa-shield-alt"></i> Safe to Spend
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- DETAILED BREAKDOWN ANALYSIS -->
                     <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                         <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Financial Breakdown Analysis</h4>
-                        <div class="flex gap-2">
-                            <span class="text-[8px] font-black px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-500 uppercase">Automated Report</span>
+                            <div>
+                                <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Financial Breakdown Analysis</h4>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase mt-1">Detailed spending from all internal modules</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="text-[8px] font-black px-3 py-1 bg-white border border-slate-200 rounded-full text-blue-600 uppercase shadow-sm italic">
+                                    <i class="fas fa-sync-alt fa-spin mr-1"></i> Real-time Sync
+                                </span>
+                            </div>
                         </div>
-                        </div>
-                        <div class="p-0">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                            <tr class="bg-slate-50/30 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                <th class="p-6">Transaction Detail</th>
-                                <th class="p-6">Module Source</th>
-                                <th class="p-6">PIC / Vendor</th>
-                                <th class="p-6 text-right">Amount</th>
-                            </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50">
-                            <tr v-for="wo in project?.work_orders" :key="'wo-'+wo.id" class="text-[11px] font-bold text-slate-600">
-                                <td class="p-6"><i class="fas fa-tools mr-2 text-blue-400"></i> {{ wo.title }}</td>
-                                <td class="p-6 uppercase text-slate-400">Workorder</td>
-                                <td class="p-6 uppercase">{{ wo.pic_name }}</td>
-                                <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(wo.budget) }}</td>
-                            </tr>
-                            <tr v-for="p in project?.purchasings" :key="'p-'+p.id" class="text-[11px] font-bold text-slate-600">
-                                <td class="p-6"><i class="fas fa-shopping-cart mr-2 text-emerald-400"></i> {{ p.item_name }}</td>
-                                <td class="p-6 uppercase text-slate-400">Purchasing</td>
-                                <td class="p-6 uppercase">{{ p.vendor_name || 'General Vendor' }}</td>
-                                <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(p.total_price) }}</td>
-                            </tr>
-                            </tbody>
-                            <tfoot>
-                            <tr class="bg-slate-900 text-white font-black">
-                                <td colspan="3" class="p-6 text-[10px] uppercase tracking-widest">Total Project Burn Rate</td>
-                                <td class="p-6 text-right text-sm italic">{{ formatCurrency(calculateTotalExpenses()) }}</td>
-                            </tr>
-                            </tfoot>
-                        </table>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50/30 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                        <th class="p-6">Transaction Detail</th>
+                                        <th class="p-6">Module Source</th>
+                                        <th class="p-6 text-center">PIC / Vendor</th>
+                                        <th class="p-6 text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-50">
+                                    <!-- WORK ORDERS -->
+                                    <tr v-for="wo in project?.work_orders" :key="'wo-'+wo.id" class="text-[11px] font-bold text-slate-600 hover:bg-slate-50/50 transition-colors">
+                                        <td class="p-6">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center text-[10px]">
+                                                    <i class="fas fa-tools"></i>
+                                                </div>
+                                                <span>{{ wo.title }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-6">
+                                            <span class="text-[8px] font-black px-2 py-1 bg-slate-100 rounded text-slate-400 uppercase">Workorder</span>
+                                        </td>
+                                        <td class="p-6 text-center uppercase text-[10px]">{{ wo.pic_name }}</td>
+                                        <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(wo.budget) }}</td>
+                                    </tr>
+
+                                    <!-- PURCHASING -->
+                                    <tr v-for="p in project?.purchasings" :key="'p-'+p.id" class="text-[11px] font-bold text-slate-600 hover:bg-slate-50/50 transition-colors">
+                                        <td class="p-6">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center text-[10px]">
+                                                    <i class="fas fa-shopping-cart"></i>
+                                                </div>
+                                                <span>{{ p.item_name }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-6">
+                                            <span class="text-[8px] font-black px-2 py-1 bg-slate-100 rounded text-slate-400 uppercase">Purchasing</span>
+                                        </td>
+                                        <td class="p-6 text-center uppercase text-[10px]">{{ p.vendor_name || 'General Vendor' }}</td>
+                                        <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(p.total_price) }}</td>
+                                    </tr>
+
+                                    <!-- EMPTY STATE -->
+                                    <tr v-if="!project?.work_orders?.length && !project?.purchasings?.length">
+                                        <td colspan="4" class="p-20 text-center">
+                                            <div class="opacity-20 flex flex-col items-center">
+                                                <i class="fas fa-chart-pie text-5xl mb-4"></i>
+                                                <p class="text-[10px] font-black uppercase tracking-widest">No financial records found for this project</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-slate-900 text-white font-black">
+                                        <td colspan="3" class="p-6 text-[10px] uppercase tracking-[0.2em] italic">Project Burn Rate (Total Expenses)</td>
+                                        <td class="p-6 text-right text-base italic text-rose-400">{{ formatCurrency(calculateTotalExpenses()) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1007,6 +1077,7 @@ const subTab = ref('overview');
 const project = ref<any>({
   project_title: '',
   client_name: '',
+  company_id: null,
   status: '',
   priority: '',
   package: '',
@@ -1014,7 +1085,16 @@ const project = ref<any>({
   finish_date: '',
   description: ''
 });
+const allCompanies = ref<any[]>([]);
 
+onMounted(async () => {
+  await fetchMaster();
+  await fetchDetail();
+  
+  // Fetch daftar PT agar dropdown Owner di Overview muncul
+  const resComp = await api.get('/companies');
+  allCompanies.value = resComp.data;
+});
 // Tambahkan interface atau gunakan 'any' supaya TypeScript gak marah
 const masterData = ref({
     categories: [] as any[],

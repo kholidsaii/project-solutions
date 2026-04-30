@@ -12,10 +12,8 @@ const routes = [
   
   // Perbaikan: Gunakan satu nama unik untuk list project
   { path: '/projects', name: 'Projects', component: () => import('../views/Projects.vue'), meta: { requiresAuth: true } },
-  
   // Route khusus untuk melihat detail satu project secara utuh
   { path: '/projects/:id', name: 'ProjectDetail', component: () => import('../views/ProjectDetail.vue'), meta: { requiresAuth: true } },
-
   // Menu Lainnya
   { path: '/activity', name: 'Activity', component: () => import('../views/Activity.vue'), meta: { requiresAuth: true } },
   { path: '/financial', name: 'Financial', component: () => import('../views/Financial.vue'), meta: { requiresAuth: true } },

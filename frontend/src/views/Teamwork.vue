@@ -68,7 +68,7 @@ const stats = computed(() => [
 const fetchData = async () => {
   isLoading.value = true;
   try {
-    const [resSummary, resInd, resTop, resComp] = await Promise.all([
+    const [resSummary, resInd, resComp] = await Promise.all([
       api.get('/teamwork/summary'),
       api.get('/users'), // <-- Pastikan ini endpoint yang benar
       api.get('/teamwork/top-outstanding'),

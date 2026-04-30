@@ -681,7 +681,6 @@ watch(currentTab, (newTab) => {
       </div>
       
     
-
       <div v-if="currentTab === 'setup'" class="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
     
         <aside class="w-full md:w-64 flex-none">

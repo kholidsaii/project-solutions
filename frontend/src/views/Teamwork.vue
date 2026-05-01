@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import api from '../api/axios';
 
 // ==========================================
@@ -167,33 +167,76 @@ const resetForm = () => {
   entityType.value = 'individual';
 };
 
+// Fungsi untuk menghapus personel/member
 const handleDeleteMember = async (id: number) => {
-  if (!confirm('Hapus entitas/member ini secara permanen?')) return;
+  // 1. Tampilkan dialog konfirmasi untuk mencegah salah klik
+  if (!confirm("Apakah Anda yakin ingin menghapus personel ini? Data tidak dapat dikembalikan.")) {
+    return;
+  }
+
   try {
-    const endpoint = currentTab.value === 'entities' ? `/companies/${id}` : `/users/${id}`;
-    await api.delete(endpoint);
+    // 2. Tembak API backend menggunakan method DELETE
+    await api.delete(`/users/${id}`);
+    
+    // 3. Tampilkan pesan sukses
+    alert("Personel berhasil dihapus!");
+    
+    // 4. Refresh data agar card langsung hilang dari layar
+    // Catatan: Pastikan nama fungsi untuk mengambil data utamanya benar (misal: fetchData atau fetchTeamData)
     await fetchData(); 
-    alert("Data berhasil dihapus!");
-  } catch (e) {
-    console.error("Gagal hapus", e);
+    
+  } catch (error: any) {
+    console.error("Gagal menghapus data personel:", error);
+    
+    // Handle error spesifik (misalnya jika user masih punya kasbon)
+    if (error.response?.status === 500) {
+      alert("Gagal menghapus: Personel ini mungkin masih terikat dengan data keuangan/kasbon atau project.");
+    } else {
+      alert("Terjadi kesalahan saat menghapus data.");
+    }
   }
 };
 
-const handleEditMaster = (item: any) => {
-  isEditing.value = true;
-  editingId.value = item.id;
-  entityType.value = currentTab.value === 'entities' ? 'organization' : 'individual';
-  
-  teamworkForm.value = {
-    name: item.name,
-    email: item.email || '',
-    role: item.role || 'member',
-    position: item.position || '',
-    company_id: item.company_id || null,
-    status: item.status || 'Active'
+// 1. Variabel State untuk Modal Edit
+const showEditModal = ref(false);
+const editForm = ref({
+  id: null as number | null,
+  name: '',
+  email: '',
+  role: '',
+  position: '',
+  company_id: '' as string | number,
+});
+
+// 2. Fungsi saat tombol Edit (pensil) diklik
+const handleEditMaster = (member: any) => {
+  // Masukkan data member yang diklik ke dalam form
+  editForm.value = {
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role || 'member',
+    position: member.position || '',
+    company_id: member.company_id || '',
   };
-  
-  showAddModal.value = true;
+  // Buka modalnya
+  showEditModal.value = true;
+};
+
+// 3. Fungsi untuk menyimpan ke Backend
+const submitEditMember = async () => {
+  try {
+    // Tembak API PUT untuk update data
+    await api.put(`/users/${editForm.value.id}`, editForm.value);
+    
+    alert("Data personel berhasil diperbarui!");
+    showEditModal.value = false; // Tutup modal
+    
+    await fetchData(); // Refresh data layar agar langsung berubah
+  } catch (error) {
+    console.error("Gagal update data:", error);
+    alert("Terjadi kesalahan saat memperbarui data personel.");
+  }
 };
 
 const openFinanceModal = (item: any) => {
@@ -271,48 +314,139 @@ const openPTDrilldown = (ptName: string) => {
   showDrilldownModal.value = true;
 };
 onMounted(fetchData);
+
 // ==========================================
-// 2. TAB: DATA (Filtering & Pagination)
+// TAB: DATA (Filtering & Pagination)
 // ==========================================
-const selectedFilterPT = ref<any>('all'); // State khusus untuk dropdown PT
+// Gunakan object untuk melacak tipe filter (pt atau role) dan valuenya
+const activeFilter = ref({ type: 'all', value: null as any });
+const openMenu = ref<string | null>('pt'); // Default buka menu PT
 const currentPage = ref(1);
-const itemsPerPage = ref(6); // Menampilkan 6 card per halaman
+const itemsPerPage = ref(6);
 
-// Computed untuk memfilter data berdasarkan dropdown
-const filteredTeamData = computed(() => {
-  let result = individuals.value;
-
-  // Filter berdasarkan PT atau Independent
-  if (selectedFilterPT.value === 'independent') {
-    result = result.filter(member => member.company_id === null || member.company_id === undefined);
-  } else if (selectedFilterPT.value !== 'all') {
-    result = result.filter(member => Number(member.company_id) === Number(selectedFilterPT.value));
-  }
-
-  return result;
-});
-
-// Reset page ke 1 setiap kali dropdown filter berubah
-const handleFilterChange = () => {
-  currentPage.value = 1;
+// Fungsi set filter dan otomatis reset ke halaman 1
+const setFilter = (type: string, value: any) => {
+  activeFilter.value = { type, value };
+  currentPage.value = 1; 
 };
 
-// --- LOGIC PAGINATION ---
+// Fungsi buka-tutup akordeon menu di sidebar
+const toggleMenu = (menuName: string) => {
+  openMenu.value = openMenu.value === menuName ? null : menuName;
+};
+
+// Computed untuk memfilter data berdasarkan Sidebar Navigasi
+const filteredTeamData = computed(() => {
+  if (activeFilter.value.type === 'all') return individuals.value;
+
+  return individuals.value.filter((member: any) => {
+    // 1. Jika filter berdasarkan PT
+    if (activeFilter.value.type === 'pt') {
+      if (activeFilter.value.value === null) {
+        return member.company_id === null || member.company_id === undefined; // Independent
+      }
+      return Number(member.company_id) === Number(activeFilter.value.value);
+    }
+    
+    // 2. Jika filter berdasarkan ROLE (Super Admin, Admin, Member)
+    if (activeFilter.value.type === 'role') {
+      return member.role === activeFilter.value.value;
+    }
+
+    return true;
+  });
+});
+
+// --- LOGIC PAGINATION (Tetap Sama) ---
 const totalPages = computed(() => {
   return Math.ceil(filteredTeamData.value.length / itemsPerPage.value) || 1;
 });
 
-// Data yang benar-benar ditampilkan di layar (sudah dipotong berdasarkan halaman)
 const paginatedTeamData = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
   const end = start + itemsPerPage.value;
   return filteredTeamData.value.slice(start, end);
 });
 
-// Fungsi navigasi halaman
 const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++; };
 const prevPage = () => { if (currentPage.value > 1) currentPage.value--; };
 const goToPage = (page: number) => { currentPage.value = page; };
+
+// ==========================================
+// TAB: SETUP (Teamwork & Project Linkage)
+// ==========================================
+const activeSetupMenu = ref('project_assignment');
+
+// Data dummy sementara untuk Projects (Nanti kamu sambungkan ke endpoint /projects)
+const availableProjects = ref<any[]>([]);
+
+// Form untuk assign PT ke Project
+const assignForm = ref({
+  company_id: '',
+  project_id: ''
+});
+
+// Fungsi Fetch Projects Khusus untuk Setup
+const fetchSetupData = async () => {
+  try {
+    const res = await api.get('/projects');
+    
+    // Bantuan Debugging: Cek di Inspect -> Console untuk melihat bentuk datanya
+    console.log("Cek Data Projects dari Backend:", res.data); 
+
+    // LOGIC AMAN: Mengakomodasi jika Laravel mengirim `res.data` (polosan) ATAU `res.data.data` (pagination/resource)
+    availableProjects.value = res.data.data || res.data || [];
+    
+  } catch (e) {
+    console.error("Gagal load projects untuk setup", e);
+  }
+};
+
+// Panggil fungsi ini jika user masuk ke tab setup
+watch(currentTab, (newTab) => {
+  if (newTab === 'setup' && availableProjects.value.length === 0) {
+    fetchSetupData();
+  }
+}, { immediate: true }); // <--- TAMBAHAN PENTING: immediate true memastikan fungsi berjalan langsung jika halaman di-refresh di tab ini
+
+// Fungsi Save Assignment
+const handleAssignProject = async () => {
+  if (!assignForm.value.company_id || !assignForm.value.project_id) {
+    alert("Pilih PT dan Project terlebih dahulu!");
+    return;
+  }
+  
+  try {
+    // LOGIKA BACKEND: Kamu perlu membuat endpoint ini di ProjectController
+    // Endpoint ini akan meng-update 'company_id' pada baris project yang dipilih.
+    await api.put(`/projects/${assignForm.value.project_id}/assign-company`, {
+      company_id: assignForm.value.company_id
+    });
+    
+    alert("Project berhasil di-assign ke PT!");
+    assignForm.value = { company_id: '', project_id: '' };
+    await fetchSetupData(); // Refresh data
+  } catch (e) {
+    console.error(e);
+    alert("Gagal assign project. Pastikan endpoint backend sudah siap.");
+  }
+};
+
+// Fungsi untuk Memutuskan Hubungan Project dari PT
+const handleUnassignProject = async (projectId: number) => {
+  if (!confirm("Apakah Anda yakin ingin memutuskan (unlink) PT dari Project ini?")) {
+    return;
+  }
+  
+  try {
+    await api.put(`/projects/${projectId}/unassign-company`);
+    alert("Project berhasil dilepas dari PT!");
+    await fetchSetupData(); // Refresh tabel otomatis
+  } catch (e) {
+    console.error("Gagal unassign project", e);
+    alert("Gagal memproses data. Pastikan endpoint backend sudah siap.");
+  }
+};
 
 </script>
 <template>
@@ -577,27 +711,74 @@ const goToPage = (page: number) => { currentPage.value = page; };
       <!-- TAB CONTENT: MEMBERS (SIDEBAR DROPDOWN & CARDS PAGINATION) -->
       <div v-if="currentTab === 'entities'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500 py-4">
         
-        <!-- LEFT: FILTER SIDEBAR (NOW WITH DROPDOWN) -->
+        <!-- LEFT: NAVIGATION SIDEBAR (Projects.vue Style Matched) -->
         <div class="lg:col-span-3">
           <div class="bg-white border border-slate-200 rounded-[2.5rem] p-6 shadow-sm sticky top-8">
-            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest pl-2 flex items-center gap-2">
-              <i class="fas fa-filter text-indigo-500"></i> Personnel Filter
+            <h4 class="text-[10px] font-black uppercase text-indigo-900 mb-6 tracking-widest pl-2">
+              Navigation
             </h4>
 
             <div class="space-y-4">
-              <div class="flex flex-col">
-                  <label class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-2">Filter by Entity (PT)</label>
-                  <div class="relative group">
-                      <!-- DROPDOWN PREMIUM -->
-                      <select v-model="selectedFilterPT" @change="handleFilterChange" 
-                              class="w-full bg-slate-50 border border-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-2xl px-5 py-4 appearance-none outline-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer shadow-inner hover:border-indigo-200">
-                          <option value="all">🌐 Show All Personnel</option>
-                          <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">🏢 {{ cp.name }}</option>
-                          <option value="independent">👤 Independent / No PT</option>
-                      </select>
-                      <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors"></i>
+              
+              <!-- BIG BLUE BUTTON (ALL PERSONNEL) -->
+              <button @click="setFilter('all', null)"
+                class="w-full flex items-center justify-center gap-3 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md"
+                :class="activeFilter.type === 'all' ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-indigo-600'">
+                <i class="fas fa-layer-group"></i> All Personnel
+              </button>
+
+              <!-- ACCORDION 1: AFFILIATED PT -->
+              <div class="pt-4 border-t border-slate-50">
+                <button @click="toggleMenu('pt')" class="w-full flex justify-between items-center px-2 mb-3 group">
+                  <div class="flex items-center gap-3 text-[10px] font-black text-slate-600 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">
+                    <i class="fas fa-folder text-indigo-600"></i> Affiliated PT
                   </div>
+                  <i class="fas fa-chevron-down text-[10px] text-slate-400 transition-transform" :class="openMenu === 'pt' ? 'rotate-180' : ''"></i>
+                </button>
+                
+                <!-- Dropdown List PT (With custom thin scrollbar class if you have one, or just clean padding) -->
+                <div v-if="openMenu === 'pt'" class="space-y-2 pl-4 mt-3 animate-in slide-in-from-top-2 duration-300 max-h-[250px] overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar">
+                  
+                  <!-- List PT dari Database -->
+                  <button v-for="cp in allCompanies" :key="cp.id"
+                    @click="setFilter('pt', cp.id)"
+                    class="w-full text-left py-1 text-[10px] font-bold transition-all flex items-center gap-3 group/item"
+                    :class="activeFilter.type === 'pt' && activeFilter.value === cp.id ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'">
+                    <span class="text-slate-300 group-hover/item:text-indigo-300 transition-colors">—</span> 
+                    <span class="truncate uppercase tracking-tight">{{ cp.name }}</span>
+                  </button>
+                  
+                  <!-- Independent -->
+                  <button @click="setFilter('pt', null)"
+                    class="w-full text-left py-1 text-[10px] font-bold transition-all flex items-center gap-3 group/item mt-2 pt-2 border-t border-slate-50"
+                    :class="activeFilter.type === 'pt' && activeFilter.value === null ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'">
+                    <span class="text-slate-300 group-hover/item:text-indigo-300 transition-colors">—</span> 
+                    <span class="truncate uppercase tracking-tight">Independent / No PT</span>
+                  </button>
+                </div>
               </div>
+
+              <!-- ACCORDION 2: ROLE / SPECIALTY -->
+              <div class="pt-4 border-t border-slate-50">
+                <button @click="toggleMenu('role')" class="w-full flex justify-between items-center px-2 mb-3 group">
+                  <div class="flex items-center gap-3 text-[10px] font-black text-slate-600 uppercase tracking-widest group-hover:text-indigo-600 transition-colors">
+                    <i class="fas fa-folder text-indigo-600"></i> Role / Position
+                  </div>
+                  <i class="fas fa-chevron-down text-[10px] text-slate-400 transition-transform" :class="openMenu === 'role' ? 'rotate-180' : ''"></i>
+                </button>
+                
+                <!-- Dropdown List Role -->
+                <div v-if="openMenu === 'role'" class="space-y-2 pl-4 mt-3 animate-in slide-in-from-top-2 duration-300">
+                  <button v-for="r in [{id: 'super_admin', label: 'Super Admin'}, {id: 'admin', label: 'Admin'}, {id: 'member', label: 'Member'}]" :key="r.id"
+                    @click="setFilter('role', r.id)"
+                    class="w-full text-left py-1 text-[10px] font-bold transition-all flex items-center gap-3 group/item"
+                    :class="activeFilter.type === 'role' && activeFilter.value === r.id ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'">
+                    <span class="text-slate-300 group-hover/item:text-indigo-300 transition-colors">—</span> 
+                    <span class="uppercase tracking-tight">{{ r.label }}</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -623,12 +804,20 @@ const goToPage = (page: number) => { currentPage.value = page; };
                 </div>
               </div>
 
-              <!-- Info Afiliasi & Kasbon -->
-              <div class="mt-4 pt-4 border-t border-slate-50 space-y-3 relative z-10">
+              <!-- Info Afiliasi, Email & Kasbon -->
+              <div class="mt-4 pt-4 border-t border-slate-50 space-y-2.5 relative z-10">
                 <div class="flex justify-between items-center">
                   <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Affiliation</span>
                   <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 uppercase truncate max-w-[120px]">
                     {{ m.pt_owner_name || 'Independent' }}
+                  </span>
+                </div>
+                <!-- BARIS EMAIL BARU -->
+                <div class="flex justify-between items-center">
+                  <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Email</span>
+                  <!-- Menggunakan lowercase agar bentuk email terlihat natural (tidak huruf besar semua) -->
+                  <span class="text-[9px] font-bold text-slate-500 lowercase truncate max-w-[140px]" :title="m.email">
+                    {{ m.email || 'no-email@system.com' }}
                   </span>
                 </div>
                 <div class="flex justify-between items-center">
@@ -692,6 +881,126 @@ const goToPage = (page: number) => { currentPage.value = page; };
                   </button>
               </div>
           </div>
+
+        </div>
+      </div>
+
+      <!-- TAB CONTENT: SETUP (Master Data & Linkage) -->
+      <div v-if="currentTab === 'setup'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500 py-4">
+        
+        <!-- LEFT: SETUP NAVIGATION -->
+        <div class="lg:col-span-3">
+          <div class="bg-white border border-slate-200 rounded-[2.5rem] p-6 shadow-sm sticky top-8">
+            <h4 class="text-[10px] font-black uppercase text-indigo-900 mb-6 tracking-widest pl-2">
+              Navigation
+            </h4>
+
+            <div class="space-y-1">
+              <!-- Menu 1: Project Assignment -->
+              <button @click="activeSetupMenu = 'project_assignment'"
+                class="w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3"
+                :class="activeSetupMenu === 'project_assignment' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'">
+                <i class="fas fa-link w-4"></i> Project Assign
+              </button>
+
+              <!-- Menu 2: Job Positions -->
+              <button @click="activeSetupMenu = 'job_positions'"
+                class="w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3"
+                :class="activeSetupMenu === 'job_positions' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'">
+                <i class="fas fa-user-tag w-4"></i> Job Positions
+              </button>
+
+              <!-- Menu 3: Finance Types -->
+              <button @click="activeSetupMenu = 'finance_types'"
+                class="w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3"
+                :class="activeSetupMenu === 'finance_types' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'">
+                <i class="fas fa-file-invoice-dollar w-4"></i> Finance Types
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: SETUP WORKSPACE -->
+        <div class="lg:col-span-9 space-y-6">
+          
+          <!-- HEADER -->
+          <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center gap-4 text-indigo-900">
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-lg">
+              <i class="fas fa-th-large"></i>
+            </div>
+            <h3 class="text-sm font-black uppercase tracking-widest">
+              TEAMWORK SETUP / {{ activeSetupMenu.replace('_', ' ') }}
+            </h3>
+          </div>
+
+          <!-- CONTENT: PROJECT ASSIGNMENT -->
+          <template v-if="activeSetupMenu === 'project_assignment'">
+            
+            <!-- FORM INPUT -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                  <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Entity (PT)</label>
+                  <select v-model="assignForm.company_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase appearance-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer">
+                    <option value="" disabled>-- CHOOSE AFFILIATED PT --</option>
+                    <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
+                  </select>
+                </div>
+                <div class="space-y-2">
+                  <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Active Project</label>
+                  <select v-model="assignForm.project_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase appearance-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer">
+                    <option value="" disabled>-- CHOOSE PROJECT --</option>
+                    <option v-for="pj in availableProjects" :key="pj.id" :value="pj.id">{{ pj.project_title }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex justify-end pt-2">
+                <button @click="handleAssignProject" class="bg-indigo-900 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-800 transition-all">
+                  Save Assignment
+                </button>
+              </div>
+            </div>
+
+            <!-- DATA TABLE -->
+            <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+              <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b border-slate-100">
+                  <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <th class="p-6">Entity (PT) Handler</th>
+                    <th class="p-6">Project Title</th>
+                    <th class="p-6">Status</th>
+                    <th class="p-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                  <tr v-for="pj in availableProjects.filter(p => p.company_id)" :key="pj.id" class="hover:bg-slate-50/50 transition-colors group">
+                    <td class="p-6 text-[11px] font-black text-indigo-600 uppercase">{{ pj.company_id ? (allCompanies.find(c => c.id === pj.company_id)?.name || 'Linked') : '-' }}</td>
+                    <td class="p-6 text-[11px] font-bold text-slate-700 uppercase">{{ pj.project_title }}</td>
+                    <td class="p-6">
+                      <span class="text-[8px] font-black uppercase bg-emerald-50 text-emerald-600 px-2 py-1 rounded">Assigned</span>
+                    </td>
+                    <td class="p-6 text-right">
+                    <button @click="handleUnassignProject(pj.id)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                      <i class="fas fa-unlink text-[10px]"></i>
+                    </button>
+                  </td>
+                  </tr>
+                  <tr v-if="availableProjects.filter(p => p.company_id).length === 0">
+                    <td colspan="4" class="p-12 text-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">No Projects Assigned Yet</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
+          <!-- CONTENT: JOB POSITIONS (Contoh placeholder) -->
+          <template v-if="activeSetupMenu === 'job_positions'">
+            <div class="bg-white border border-slate-200 rounded-3xl p-16 text-center shadow-sm">
+              <i class="fas fa-tools text-5xl text-slate-200 mb-4"></i>
+              <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Master Job Positions Setup</h4>
+              <p class="text-[10px] text-slate-300 mt-2 uppercase">Coming Soon - Add standard roles like Developer, UI/UX, etc.</p>
+            </div>
+          </template>
 
         </div>
       </div>
@@ -791,6 +1100,64 @@ const goToPage = (page: number) => { currentPage.value = page; };
               Confirm & Register Entity
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDIT PERSONNEL -->
+    <div v-if="showEditModal" class="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <!-- Overlay/Background Hitam -->
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="showEditModal = false"></div>
+      
+      <!-- Modal Content -->
+      <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Edit Personnel</h3>
+          <button @click="showEditModal = false" class="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="space-y-5">
+          <div class="space-y-2">
+            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+            <input v-model="editForm.name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-2 ring-indigo-100 transition-all">
+          </div>
+          
+          <div class="space-y-2">
+            <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+            <input v-model="editForm.email" type="email" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-2 ring-indigo-100 transition-all">
+          </div>
+
+          <!-- PERBAIKAN: Grid diubah untuk menampung 3 inputan dengan rapi -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Position / Title</label>
+              <input v-model="editForm.position" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase focus:ring-2 ring-indigo-100 transition-all">
+            </div>
+            <div class="space-y-2">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Affiliated PT</label>
+              <select v-model="editForm.company_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase appearance-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer">
+                <option value="" disabled>-- Pilih PT --</option>
+                <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
+              </select>
+            </div>
+            
+            <!-- TAMBAHAN: Dropdown System Access Role -->
+            <div class="space-y-2 md:col-span-2">
+              <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">System Access Role</label>
+              <select v-model="editForm.role" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase appearance-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer">
+                <option value="super_admin">Super Admin (Full Access)</option>
+                <option value="admin">Admin</option>
+                <option value="member">Member</option>
+                <option value="staff">Staff / General</option>
+              </select>
+            </div>
+          </div>
+
+          <button @click="submitEditMember" class="w-full mt-4 bg-indigo-600 text-white px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+            Update Personnel
+          </button>
         </div>
       </div>
     </div>

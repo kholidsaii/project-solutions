@@ -780,7 +780,6 @@ public function storeInvoice(Request $request)
     return response()->json(['message' => 'Invoice Created Successfully']);
 }
 
-
 public function getTeamworkSummary()
 {
     try {
@@ -794,13 +793,14 @@ public function getTeamworkSummary()
             ->select(
                 'users.id',
                 'users.name',
+                'users.email',
                 'users.role',
                 'users.position',
                 'users.company_id', // <--- TAMBAHKAN BARIS INI
                 'companies.name as pt_owner_name',
                 DB::raw('COALESCE(SUM(team_finances.amount), 0) as outstanding')
             )
-            ->groupBy('users.id', 'users.name', 'users.role', 'users.position', 'users.company_id', 'companies.name')
+            ->groupBy('users.id', 'users.name', 'users.email', 'users.role', 'users.position', 'users.company_id', 'companies.name')
             ->get();
 
         // Ambil ringkasan Organisasi (PT/Vendor)
@@ -815,6 +815,34 @@ public function getTeamworkSummary()
         ], 200);
     } catch (\Exception $e) {
         return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+public function assignCompany(Request $request, $id)
+{
+    $request->validate(['company_id' => 'required|exists:companies,id']);
+    
+    // Update project dengan ID PT yang baru
+    DB::table('projects')->where('id', $id)->update([
+        'company_id' => $request->company_id,
+        'updated_at' => now()
+    ]);
+    
+    return response()->json(['message' => 'Project Assigned!']);
+}
+
+public function unassignCompany($id)
+{
+    try {
+        // Mengubah company_id menjadi null pada tabel projects
+        DB::table('projects')->where('id', $id)->update([
+            'company_id' => null,
+            'updated_at' => now()
+        ]);
+        
+        return response()->json(['message' => 'Project berhasil dilepas dari PT']);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Gagal melepas PT: ' . $e->getMessage()], 500);
     }
 }
 

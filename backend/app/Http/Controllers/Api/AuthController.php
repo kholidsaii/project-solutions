@@ -45,28 +45,29 @@ class AuthController extends Controller
     }
 
     public function register(Request $request)
-{
-    $data = $request->validate([
-        'name' => 'required|string',
-        'email' => 'required|email|unique:users',
-        'password' => 'required|min:6',
-        'role' => 'required',
-        'company_id' => 'nullable|exists:companies,id', // Tambahkan ini
-        'position' => 'nullable|string'                // Tambahkan ini
-    ]);
+    {
+        $data = $request->validate([
+            'name' => 'required|string',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:6',
+            'role' => 'required',
+            'company_id' => 'nullable|exists:companies,id', // Tambahkan ini
+            'position' => 'nullable|string'                // Tambahkan ini
+        ]);
 
-    $user = User::create([
-        'name' => $data['name'],
-        'email' => $data['email'],
-        'password' => bcrypt($data['password']),
-        'role' => $data['role'],
-        'company_id' => $request->company_id, // Simpan ke DB
-        'position' => $request->position      // Simpan ke DB
-    ]);
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => bcrypt($data['password']),
+            'role' => $data['role'],
+            'company_id' => $request->company_id, // Simpan ke DB
+            'position' => $request->position      // Simpan ke DB
+        ]);
 
-    // ... sisa kode log ...
-}
-// 1. Ambil semua daftar user untuk halaman Teamwork
+        // ... sisa kode log ...
+    }
+    
+    // 1. Ambil semua daftar user untuk halaman Teamwork
     public function index()
     {
         try {
@@ -80,46 +81,84 @@ class AuthController extends Controller
         }
     }
 
-    // 2. Update Role User
-    public function updateRole(Request $request, $id)
+    // 4. Update Data Member / Personnel (Sudah digabung dengan Role)
+    public function update(Request $request, $id)
     {
-        $request->validate(['role' => 'required|in:super_admin,admin,member']);
-        
-        $user = User::findOrFail($id);
-        $oldRole = $user->role;
-        $user->update(['role' => $request->role]);
+        try {
+            $user = User::findOrFail($id);
 
-        // CATAT LOG PERUBAHAN ROLE
-        AuditLog::create([
-            'user_id'     => Auth::id(),
-            'user_name'   => Auth::user()->name,
-            'action'      => 'UPDATE_ROLE',
-            'description' => "Mengubah role user {$user->name} dari {$oldRole} ke {$request->role}",
-            'ip_address'  => $request->ip()
-        ]);
+            // 1. Tambahkan 'role' ke dalam validasi
+            $request->validate([
+                'name'  => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email,' . $id,
+                'role'  => 'nullable|string'
+            ]);
 
-        return response()->json(['message' => 'Role berhasil diperbarui!']);
+            // 2. Simpan perubahan ke database, termasuk role
+            $user->update([
+                'name'       => $request->name,
+                'email'      => $request->email,
+                'position'   => $request->position,
+                'company_id' => $request->company_id ?: null,
+                'role'       => $request->role ?: $user->role, // Update role jika dikirim
+            ]);
+
+            // CATAT LOG PERUBAHAN
+            \App\Models\AuditLog::create([
+                'user_id'     => Auth::id(),
+                'user_name'   => Auth::user()->name,
+                'action'      => 'UPDATE_USER',
+                'description' => "Memperbarui data & role personel: {$user->name}",
+                'ip_address'  => $request->ip()
+            ]);
+
+            return response()->json(['message' => 'Data personel berhasil diperbarui!'], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['error' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal memperbarui data: ' . $e->getMessage()], 500);
+        }
     }
 
     // 3. Hapus Member Team
     public function destroy(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        
-        // Simpan nama sebelum dihapus untuk log
-        $userName = $user->name;
+        try {
+            // Cari user (Akan otomatis lari ke catch ModelNotFoundException jika ID tidak ada)
+            $user = User::findOrFail($id);
+            
+            // Simpan nama sebelum dihapus untuk log
+            $userName = $user->name;
 
-        // CATAT LOG PENGHAPUSAN
-        AuditLog::create([
-            'user_id'     => Auth::id(),
-            'user_name'   => Auth::user()->name,
-            'action'      => 'DELETE_USER',
-            'description' => "Menghapus user member: {$userName}",
-            'ip_address'  => $request->ip()
-        ]);
+            // Eksekusi penghapusan
+            $user->delete();
 
-        $user->delete();
-        return response()->json(['message' => 'User berhasil dihapus!']);
+            // CATAT LOG PENGHAPUSAN (Letakkan setelah delete berhasil agar log valid)
+            AuditLog::create([
+                'user_id'     => Auth::id(),
+                'user_name'   => Auth::user()->name,
+                'action'      => 'DELETE_USER',
+                'description' => "Menghapus user member: {$userName}",
+                'ip_address'  => $request->ip()
+            ]);
+
+            return response()->json(['message' => 'User berhasil dihapus!'], 200);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Tangkap error jika user masih terikat dengan tabel lain (seperti kasbon/team_finances)
+            return response()->json([
+                'error' => 'Tidak dapat menghapus personel karena masih memiliki data transaksi/kasbon terkait.'
+            ], 500);
+            
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Tangkap error jika ID user sudah tidak ada di database
+            return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
+            
+        } catch (\Exception $e) {
+            // Tangkap error umum lainnya
+            return response()->json(['error' => 'Gagal menghapus data: ' . $e->getMessage()], 500);
+        }
     }
     // ... sisanya pastikan user_id dan user_name diisi di create log ...
 }

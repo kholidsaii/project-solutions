@@ -15,6 +15,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects', [ProjectController::class, 'store']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
     Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+    Route::put('/projects/{id}/assign-company', [ProjectController::class, 'assignCompany']);
+    Route::put('/projects/{id}/unassign-company', [ProjectController::class, 'unassignCompany']);
     
     // Task & Category
     Route::get('/work-categories', [ProjectController::class, 'getCategories']);
@@ -27,6 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'index']);
     Route::post('/users/register', [AuthController::class, 'register']); 
     Route::put('/users/{id}/role', [AuthController::class, 'updateRole']);
+    Route::put('/users/{id}', [AuthController::class, 'update']);
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
 
     // --- ANALYTICS ---

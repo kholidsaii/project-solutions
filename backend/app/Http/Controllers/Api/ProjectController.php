@@ -870,17 +870,29 @@ public function getTopOutstanding()
         return response()->json(DB::table('companies')->orderBy('id', 'asc')->get());
     }
 
-// Tambahkan juga fungsi placeholder ini agar tidak error saat di-save
-public function storeCompany(Request $request)
-{
-    $request->validate(['name' => 'required']);
-    DB::table('companies')->insert([
-        'name' => $request->name,
-        'legal_name' => $request->legal_name,
-        'created_at' => now()
-    ]);
-    return response()->json(['message' => 'Company created']);
-}
+    public function storeCompany(Request $request)
+    {
+        // 1. Validate input
+        $request->validate([
+            'name' => 'required|string|max:255'
+        ]);
+
+        try {
+            // 2. Insert into database (Removed 'updated_at' to match your DB schema)
+            DB::table('companies')->insert([
+                'name' => $request->name,
+                'legal_name' => $request->legal_name,
+                'created_at' => now()
+            ]);
+            
+            return response()->json(['message' => 'Company created successfully'], 201);
+            
+        } catch (\Exception $e) {
+            // 3. Catch and return the error if something else fails
+            return response()->json(['error' => 'Gagal menyimpan PT: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function getConsolidatedFinance(Request $request)
     {
         try {

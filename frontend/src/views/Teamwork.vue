@@ -68,18 +68,20 @@ const stats = computed(() => [
 const fetchData = async () => {
   isLoading.value = true;
   try {
-    const [resSummary, resInd, resTop, resComp] = await Promise.all([
+    // Hapus api.get('/users') karena datanya sudah ter-cover di '/teamwork/summary'
+    const [resSummary, resTop, resComp] = await Promise.all([
       api.get('/teamwork/summary'),
-      api.get('/users'),
       api.get('/teamwork/top-outstanding'),
       api.get('/companies')
     ]);
 
     organizations.value = resSummary.data.organizations || [];
     totalProjectCount.value = resSummary.data.total_projects || 0;
-    individuals.value = resInd.data || [];
     
-    // GUNAKAN resTop DI SINI AGAR ERROR TS HILANG
+    // PERBAIKAN DI SINI: Ambil array individuals dari resSummary
+    individuals.value = resSummary.data.individuals || []; 
+    
+    // topOutstanding sudah benar
     topOutstanding.value = resTop.data || []; 
     
     allCompanies.value = resComp.data || [];
@@ -93,13 +95,38 @@ const fetchData = async () => {
 const handleSave = async () => {
   try {
     let url = entityType.value === 'individual' ? '/users/register' : '/companies';
-    
-    const payload = { ...teamworkForm.value };
-    if (!isEditing.value && entityType.value === 'individual') {
-        payload.password = 'password123';
+    let payload: any = {};
+
+    // 1. SIAPKAN DATA BERDASARKAN TIPE (INDIVIDUAL / ORGANIZATION)
+    if (entityType.value === 'individual') {
+      if (!teamworkForm.value.name || !teamworkForm.value.email) {
+          alert("Nama dan Email wajib diisi untuk anggota baru.");
+          return;
+      }
+      payload = {
+          name: teamworkForm.value.name,
+          email: teamworkForm.value.email,
+          role: teamworkForm.value.role || 'member',
+          position: teamworkForm.value.position,
+          company_id: teamworkForm.value.company_id,
+          status: teamworkForm.value.status
+      };
+      if (!isEditing.value) {
+          payload.password = 'password123';
+      }
+    } else {
+      // DATA UNTUK ORGANIZATION (PT)
+      if (!teamworkForm.value.name) {
+          alert("Nama PT wajib diisi.");
+          return;
+      }
+      payload = {
+          name: teamworkForm.value.name, 
+          legal_name: teamworkForm.value.position || null, // Di HTML kita pakai input 'position' untuk field Legal Name
+      };
     }
 
-    // Perbaikan Error 7052: Gunakan pemanggilan eksplisit untuk amannya TypeScript
+    // 2. EKSEKUSI API
     if (isEditing.value) {
       url = entityType.value === 'individual' ? `/users/${editingId.value}/role` : `/companies/${editingId.value}`;
       await api.put(url, payload);
@@ -107,13 +134,29 @@ const handleSave = async () => {
       await api.post(url, payload);
     }
     
+    // 3. JIKA SUKSES
     showAddModal.value = false;
-    await fetchData();
+    await fetchData(); // Refresh data grid
     resetForm();
-    alert("Data berhasil disimpan!");
-  } catch (e) {
+    alert(entityType.value === 'individual' ? "Member berhasil ditambah!" : "PT berhasil didaftarkan!");
+
+  } catch (e: any) {
     console.error(e);
-    alert("Gagal memproses data.");
+    // 4. PENANGANAN ERROR YANG LEBIH JELAS
+    if (e.response && e.response.status === 422) {
+       // Error Validasi Laravel
+       const errors = e.response.data.errors;
+       let errorMessage = "Cek kembali data Anda:\n";
+       for (const key in errors) {
+           errorMessage += `- ${errors[key][0]}\n`;
+       }
+       alert(errorMessage);
+    } else if (e.response && e.response.data && e.response.data.error) {
+       // Error 500 yang sudah kita tangkap di backend
+       alert("Sistem Error:\n" + e.response.data.error);
+    } else {
+       alert("Terjadi kesalahan sistem atau koneksi terputus.");
+    }
   }
 };
 
@@ -228,6 +271,49 @@ const openPTDrilldown = (ptName: string) => {
   showDrilldownModal.value = true;
 };
 onMounted(fetchData);
+// ==========================================
+// 2. TAB: DATA (Filtering & Pagination)
+// ==========================================
+const selectedFilterPT = ref<any>('all'); // State khusus untuk dropdown PT
+const currentPage = ref(1);
+const itemsPerPage = ref(6); // Menampilkan 6 card per halaman
+
+// Computed untuk memfilter data berdasarkan dropdown
+const filteredTeamData = computed(() => {
+  let result = individuals.value;
+
+  // Filter berdasarkan PT atau Independent
+  if (selectedFilterPT.value === 'independent') {
+    result = result.filter(member => member.company_id === null || member.company_id === undefined);
+  } else if (selectedFilterPT.value !== 'all') {
+    result = result.filter(member => Number(member.company_id) === Number(selectedFilterPT.value));
+  }
+
+  return result;
+});
+
+// Reset page ke 1 setiap kali dropdown filter berubah
+const handleFilterChange = () => {
+  currentPage.value = 1;
+};
+
+// --- LOGIC PAGINATION ---
+const totalPages = computed(() => {
+  return Math.ceil(filteredTeamData.value.length / itemsPerPage.value) || 1;
+});
+
+// Data yang benar-benar ditampilkan di layar (sudah dipotong berdasarkan halaman)
+const paginatedTeamData = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredTeamData.value.slice(start, end);
+});
+
+// Fungsi navigasi halaman
+const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++; };
+const prevPage = () => { if (currentPage.value > 1) currentPage.value--; };
+const goToPage = (page: number) => { currentPage.value = page; };
+
 </script>
 <template>
   <div class="min-h-screen bg-[#F8FAFC] pb-20 md:pl-20 font-sans overflow-x-hidden text-slate-900">
@@ -254,7 +340,7 @@ onMounted(fetchData);
       <!-- NAVIGATION TABS -->
       <div class="bg-[#F1F5F9] border-x border-y border-slate-200 py-3 px-8 md:pl-[120px]">
         <div class="flex gap-8">
-          <button v-for="tab in ['analytics', 'entities', 'members']" :key="tab"
+          <button v-for="tab in ['analytics', 'entities', 'setup']" :key="tab"
             @click="currentTab = tab" 
             class="group text-[11px] font-bold flex items-center gap-2 transition-all capitalize"
             :class="currentTab === tab ? 'text-[#2E3A8C]' : 'text-slate-400'">
@@ -488,100 +574,127 @@ onMounted(fetchData);
       </div>
       </div>
 
-      <!-- CONTENT: LIST VIEW (Entities/PT) -->
-      <div v-if="currentTab === 'entities' || currentTab === 'members'" class="py-8 animate-in slide-in-from-bottom-4">
-        <div class="bg-white border border-slate-200 rounded-4xl overflow-hidden shadow-sm overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[800px]">
-                <thead class="bg-slate-50">
-                    <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                        <th class="p-6">Entity Detail</th>
-                        <th class="p-6">Role / Specialty</th>
-                        <th class="p-6">Affiliated PT (Bos Entiti)</th>
-                        <th class="p-6">Financing (Kasbon/Modal)</th>
-                        <th class="p-6 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                    <!-- Data List -->
-                    <tr v-for="item in (currentTab === 'entities' ? organizations : individuals)" 
-                        :key="item.id" 
-                        class="hover:bg-slate-50/50 transition-colors group">
-                        
-                        <!-- Entity Detail -->
-                        <td class="p-6">
-                            <div class="flex items-center gap-4">
-                                <!-- Logo Dinamis (Avatar atau Initials) -->
-                                <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black shadow-inner overflow-hidden">
-                                    <img v-if="item.avatar_url" :src="item.avatar_url" class="w-full h-full object-cover">
-                                    <span v-else>{{ item.name.substring(0,2).toUpperCase() }}</span>
-                                </div>
-                                <div>
-                                    <p class="text-[12px] font-black text-slate-800 uppercase tracking-tight">{{ item.name }}</p>
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                                        {{ item.legal_name || item.email || 'Contractor' }}
-                                    </p>
-                                </div>
-                            </div>
-                        </td>
+      <!-- TAB CONTENT: MEMBERS (SIDEBAR DROPDOWN & CARDS PAGINATION) -->
+      <div v-if="currentTab === 'entities'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500 py-4">
+        
+        <!-- LEFT: FILTER SIDEBAR (NOW WITH DROPDOWN) -->
+        <div class="lg:col-span-3">
+          <div class="bg-white border border-slate-200 rounded-[2.5rem] p-6 shadow-sm sticky top-8">
+            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest pl-2 flex items-center gap-2">
+              <i class="fas fa-filter text-indigo-500"></i> Personnel Filter
+            </h4>
 
-                        <!-- Role / Position -->
-                        <td class="p-6">
-                            <span class="px-3 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg uppercase border border-blue-100 shadow-sm">
-                                {{ item.position || item.role || 'Staff' }}
-                            </span>
-                        </td>
-
-                        <!-- Affiliated PT (Terelasi ke 7 PT Bos) -->
-                        <td class="p-6">
-                            <div class="flex items-center gap-2 text-[11px] font-bold text-slate-600">
-                                <div class="w-2 h-2 rounded-full bg-emerald-500" v-if="item.pt_owner_name"></div>
-                                <i v-else class="fas fa-landmark text-slate-300"></i>
-                                <span class="uppercase tracking-tight">{{ item.pt_owner_name || 'Independent / Outside' }}</span>
-                            </div>
-                        </td>
-
-                        <!-- Financing (Kasbon Team) -->
-                        <td class="p-6">
-                            <div class="flex flex-col">
-                                <span class="text-[11px] font-black italic" :class="item.outstanding > 0 ? 'text-rose-500' : 'text-emerald-600'">
-                                    {{ formatCurrency(item.outstanding) }}
-                                </span>
-                                <span v-if="item.outstanding > 0" class="text-[8px] font-black text-rose-300 uppercase tracking-tighter">
-                                    Pending Settlement
-                                </span>
-                            </div>
-                        </td>
-
-                        <!-- Action Buttons -->
-                        <td class="p-6 text-right">
-                            <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0 translate-x-4">
-                                <!-- Tombol Kasbon/Finance -->
-                                <button @click="openFinanceModal(item)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
-                                    <i class="fas fa-wallet text-[10px]"></i>
-                                </button>
-                                <!-- Tombol Edit -->
-                                <button @click="handleEditMaster(item)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                                    <i class="fas fa-edit text-[10px]"></i>
-                                </button>
-                                <!-- Tombol Hapus -->
-                                <button @click="handleDeleteMember(item.id)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:bg-rose-600 hover:text-white transition-all shadow-sm">
-                                    <i class="fas fa-trash text-[10px]"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <!-- Empty State -->
-                    <tr v-if="(currentTab === 'entities' ? organizations : individuals).length === 0">
-                        <td colspan="5" class="p-20 text-center opacity-30 grayscale">
-                            <i class="fas fa-users text-4xl mb-4"></i>
-                            <p class="text-[10px] font-black uppercase tracking-widest">No members or entities found</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="space-y-4">
+              <div class="flex flex-col">
+                  <label class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-2">Filter by Entity (PT)</label>
+                  <div class="relative group">
+                      <!-- DROPDOWN PREMIUM -->
+                      <select v-model="selectedFilterPT" @change="handleFilterChange" 
+                              class="w-full bg-slate-50 border border-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-2xl px-5 py-4 appearance-none outline-none focus:ring-2 ring-indigo-100 transition-all cursor-pointer shadow-inner hover:border-indigo-200">
+                          <option value="all">🌐 Show All Personnel</option>
+                          <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">🏢 {{ cp.name }}</option>
+                          <option value="independent">👤 Independent / No PT</option>
+                      </select>
+                      <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors"></i>
+                  </div>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
+
+        <!-- RIGHT: PERSONNEL CARDS GRID WITH PAGINATION -->
+        <div class="lg:col-span-9 flex flex-col min-h-[500px]">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start content-start flex-1">
+            
+            <!-- PERHATIKAN: Sekarang looping-nya pakai paginatedTeamData -->
+            <div v-for="m in paginatedTeamData" :key="m.id" 
+              class="bg-white border border-slate-200 p-6 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col justify-between h-[210px]">
+              
+              <!-- Identitas Utama -->
+              <div class="flex items-center gap-4 relative z-10">
+                <div class="w-14 h-14 rounded-[1.2rem] bg-indigo-50 flex items-center justify-center text-indigo-600 text-lg font-black shadow-inner uppercase border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <img v-if="m.avatar_url" :src="m.avatar_url" class="w-full h-full object-cover rounded-[1.2rem]">
+                  <span v-else>{{ m.name.substring(0,2) }}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h5 class="text-[13px] font-black text-slate-800 uppercase tracking-tight truncate">{{ m.name }}</h5>
+                  <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">{{ m.position || m.role || 'Staff' }}</p>
+                </div>
+              </div>
+
+              <!-- Info Afiliasi & Kasbon -->
+              <div class="mt-4 pt-4 border-t border-slate-50 space-y-3 relative z-10">
+                <div class="flex justify-between items-center">
+                  <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Affiliation</span>
+                  <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 uppercase truncate max-w-[120px]">
+                    {{ m.pt_owner_name || 'Independent' }}
+                  </span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Debt / Kasbon</span>
+                  <span class="text-[10px] font-black italic" :class="m.outstanding > 0 ? 'text-rose-500' : 'text-emerald-500'">
+                    {{ formatCurrency(m.outstanding) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- OVERLAY TOMBOL ACTION -->
+              <div class="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-white via-white to-transparent translate-y-[120%] group-hover:translate-y-0 transition-transform duration-300 ease-out flex justify-center gap-3 z-20 rounded-b-[2.5rem]">
+                <button @click="openFinanceModal(m)" class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                    <i class="fas fa-wallet text-[11px]"></i>
+                </button>
+                <button @click="handleEditMaster(m)" class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                    <i class="fas fa-edit text-[11px]"></i>
+                </button>
+                <button @click="handleDeleteMember(m.id)" class="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                    <i class="fas fa-trash text-[11px]"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- EMPTY STATE JIKA FILTER KOSONG -->
+            <div v-if="filteredTeamData.length === 0" class="col-span-full py-24 text-center opacity-30 grayscale border-2 border-dashed border-slate-200 rounded-[3rem]">
+                <i class="fas fa-users-slash text-5xl mb-4 text-slate-300"></i>
+                <p class="text-[11px] font-black uppercase tracking-widest text-slate-500">No personnel found</p>
+            </div>
+
+          </div>
+
+          <!-- PAGINATION CONTROLS -->
+          <div v-if="totalPages > 1" class="mt-8 pt-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+              <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  Showing <span class="text-indigo-600">{{ (currentPage - 1) * itemsPerPage + 1 }}</span> to 
+                  <span class="text-indigo-600">{{ Math.min(currentPage * itemsPerPage, filteredTeamData.length) }}</span> 
+                  of <span class="text-slate-700">{{ filteredTeamData.length }}</span> entries
+              </p>
+              
+              <div class="flex items-center gap-2">
+                  <!-- Prev Button -->
+                  <button @click="prevPage" :disabled="currentPage === 1" 
+                          class="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+                      <i class="fas fa-chevron-left text-[10px]"></i>
+                  </button>
+                  
+                  <!-- Page Numbers -->
+                  <div class="flex items-center gap-1">
+                      <button v-for="page in totalPages" :key="page" @click="goToPage(page)"
+                              class="w-8 h-8 flex items-center justify-center rounded-xl text-[10px] font-black transition-all shadow-sm"
+                              :class="currentPage === page ? 'bg-indigo-600 text-white shadow-indigo-200 border-transparent' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'">
+                          {{ page }}
+                      </button>
+                  </div>
+
+                  <!-- Next Button -->
+                  <button @click="nextPage" :disabled="currentPage === totalPages"
+                          class="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+                      <i class="fas fa-chevron-right text-[10px]"></i>
+                  </button>
+              </div>
+          </div>
+
+        </div>
+      </div>
 
     </div>
     <!-- MODAL ADD TEAM MEMBER -->
@@ -614,29 +727,63 @@ onMounted(fetchData);
 
           <!-- Form Fields -->
           <div class="space-y-4">
-            <div class="space-y-1">
-              <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Full Name / PT Name</label>
-              <input v-model="teamworkForm.name" type="text" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 ring-indigo-100 transition-all uppercase">
-            </div>
+            
+            <!-- DYNAMIC FIELDS FOR INDIVIDUAL -->
+            <template v-if="entityType === 'individual'">
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Full Name</label>
+                  <input v-model="teamworkForm.name" type="text" placeholder="E.G. JOHN DOE" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 ring-indigo-100 transition-all uppercase">
+                </div>
 
-            <div v-if="entityType === 'individual'" class="space-y-1">
-              <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Email Address</label>
-              <input v-model="teamworkForm.email" type="email" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none uppercase">
-            </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Email Address</label>
+                  <input v-model="teamworkForm.email" type="email" placeholder="JOHN@EXAMPLE.COM" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none uppercase">
+                </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Role / Position</label>
-                <input v-model="teamworkForm.position" type="text" placeholder="E.G. DEVELOPER" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none uppercase">
-              </div>
-              <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Affiliated PT</label>
-                <select v-model="teamworkForm.company_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none appearance-none">
-                  <option :value="null">-- INDEPENDENT --</option>
-                  <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
-                </select>
-              </div>
-            </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Job Role / Position</label>
+                    <input v-model="teamworkForm.position" type="text" placeholder="E.G. DEVELOPER" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none uppercase">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-1">System Access Level</label>
+                    <select v-model="teamworkForm.role" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none appearance-none cursor-pointer">
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="space-y-1 mt-4">
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Affiliated PT</label>
+                    <select v-model="teamworkForm.company_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none appearance-none cursor-pointer">
+                      <option :value="null">-- INDEPENDENT / NO PT --</option>
+                      <option v-for="cp in allCompanies" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
+                    </select>
+                </div>
+            </template>
+
+            <!-- DYNAMIC FIELDS FOR ORGANIZATION -->
+            <template v-else>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Company / Entity Name</label>
+                  <input v-model="teamworkForm.name" type="text" placeholder="E.G. PT. MAJU MUNDUR" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 ring-indigo-100 transition-all uppercase">
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Legal Registration Name</label>
+                  <!-- Reusing the 'position' field to store legal_name temporarily before saving -->
+                  <input v-model="teamworkForm.position" type="text" placeholder="E.G. PT. MAJU MUNDUR SEJAHTERA" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 text-xs font-bold outline-none uppercase">
+                </div>
+                
+                <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 mt-4">
+                    <p class="text-[10px] text-amber-700 font-medium">
+                        <i class="fas fa-info-circle mr-1"></i> Registering a new organization will make it available in the "Affiliated PT" dropdown for personnel assignment.
+                    </p>
+                </div>
+            </template>
+
           </div>
 
           <div class="pt-4">

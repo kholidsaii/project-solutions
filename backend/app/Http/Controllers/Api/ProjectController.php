@@ -7,8 +7,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use App\Models\AuditLog;
 class ProjectController extends Controller
 {
+    private function createLog($action, $description, $request)
+    {
+        AuditLog::create([
+            'user_id'     => Auth::id(),
+            'user_name'   => Auth::user()->name,
+            'action'      => $action,
+            'description' => $description,
+            'ip_address'  => $request->ip()
+        ]);
+    }
     private function getTableName($type)
     {
         return match($type) {
@@ -92,9 +103,35 @@ class ProjectController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->createLog('CREATE_PROJECT', "Membuat project baru: {$request->project_title}", $request);
             return response()->json(['message' => 'Project berhasil dibuat!', 'id' => $id], 201);
+            
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal menyimpan project'], 500);
+        }
+    }
+
+    public function getNotifications()
+    {
+        try {
+            // Ambil 10 aktivitas terbaru dari audit_logs
+            $logs = DB::table('audit_logs')
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get()
+                ->map(function($log) {
+                    return [
+                        'id'      => $log->id,
+                        'title'   => $log->action, // Contoh: 'LOGIN' atau 'UPDATE_USER'
+                        'message' => $log->description,
+                        // Format waktu menjadi "2 mins ago" untuk tampilan modern
+                        'time'    => Carbon::parse($log->created_at)->diffForHumans()
+                    ];
+                });
+
+            return response()->json($logs, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -216,6 +253,7 @@ class ProjectController extends Controller
             'created_at' => now()
         ]);
         $this->updateProjectProgress($request->project_id);
+        $this->createLog('ADD_TASK', "Menambah task '{$request->task_name}' ke project ID: {$request->project_id}", $request);
         return response()->json(['message' => 'Task Created']);
     }
 
@@ -243,40 +281,66 @@ class ProjectController extends Controller
         }
     }
 
-    public function getStats()
-    {
+   public function getStats()
+{
+    try {
+        // 1. Summary Stats dengan Default Value 0
         $summary = [
-            'total'    => DB::table('projects')->count(),
-            'finish'   => DB::table('projects')->where('progress_percent', 100)->count(),
-            'progress' => DB::table('projects')->whereBetween('progress_percent', [1, 99])->count(),
-            'planing'  => DB::table('projects')->where('progress_percent', 0)->count(),
-            'pending'  => DB::table('projects')->where('contract_value', '>', 100000000)->count(), // Contoh kriteria pending/high value
+            'total'    => (int) DB::table('projects')->count(),
+            'finish'   => (int) DB::table('projects')->where('progress_percent', 100)->count(),
+            'progress' => (int) DB::table('projects')->whereBetween('progress_percent', [1, 99])->count(),
+            'planing'  => (int) DB::table('projects')->where('progress_percent', 0)->count(),
+            'pending'  => (int) DB::table('projects')->where('contract_value', '>', 100000000)->count(),
         ];
 
-        // Data Bulanan
+        // 2. Data Bulanan (Pastikan Casting Integer untuk PostgreSQL)
+        // Menggunakan EXTRACT(MONTH...) menghasilkan nilai float/string di beberapa driver, kita cast ke INT
         $monthlyData = DB::table('projects')
-            ->select(DB::raw("EXTRACT(MONTH FROM created_at) as month"), DB::raw("COUNT(*) as total"))
+            ->select(
+                DB::raw("CAST(EXTRACT(MONTH FROM created_at) AS INTEGER) as month"), 
+                DB::raw("COUNT(*) as total")
+            )
             ->whereYear('created_at', date('Y'))
-            ->groupBy('month')->get();
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
 
         $monthlyStats = array_fill(0, 12, 0);
         foreach ($monthlyData as $data) {
-            $monthlyStats[(int)$data->month - 1] = (int)$data->total;
+            // Pastikan index bulan valid (1-12)
+            if ($data->month >= 1 && $data->month <= 12) {
+                $monthlyStats[$data->month - 1] = (int) $data->total;
+            }
         }
 
-        // Data Pie Chart berdasarkan Kategori
+        // 3. Data Pie Chart berdasarkan Kategori
         $categoryDistribution = DB::table('projects')
             ->join('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->select('work_categories.name', DB::raw('count(*) as total'))
+            ->select('work_categories.name', DB::raw('COUNT(*) as total'))
             ->groupBy('work_categories.name')
-            ->pluck('total')->toArray();
+            ->pluck('total')
+            ->map(fn($val) => (int) $val) // Pastikan data adalah array of integer
+            ->toArray();
 
+        // 4. Return Response dengan struktur yang dijamin ada (tidak undefined)
         return response()->json([
-            'summary' => $summary,
-            'monthly' => $monthlyStats,
-            'categories' => $categoryDistribution ?: [25, 25, 25, 25],
-        ]);
+            'summary'    => $summary,
+            'monthly'    => $monthlyStats,
+            'categories' => !empty($categoryDistribution) ? $categoryDistribution : [0, 0, 0, 0],
+        ], 200);
+
+    } catch (\Exception $e) {
+        // Jika terjadi error (misal tabel belum ada), kirim data kosong agar frontend tidak crash
+        return response()->json([
+            'summary' => [
+                'total' => 0, 'finish' => 0, 'progress' => 0, 'planing' => 0, 'pending' => 0
+            ],
+            'monthly' => array_fill(0, 12, 0),
+            'categories' => [0, 0, 0, 0],
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function getCategories()
     {
@@ -431,6 +495,14 @@ class ProjectController extends Controller
     public function updateProjectDetail(Request $request, $id)
     {
         try {
+            // 1. Cari project terlebih dahulu untuk mendapatkan nama (untuk log) dan validasi eksistensi
+            $project = DB::table('projects')->where('id', $id)->first();
+
+            if (!$project) {
+                return response()->json(['message' => 'Project tidak ditemukan'], 404);
+            }
+
+            // 2. Siapkan data update
             $data = [
                 'project_title'   => $request->project_title,
                 'client_name'     => $request->client_name,
@@ -446,10 +518,15 @@ class ProjectController extends Controller
                 'updated_at'      => now()
             ];
 
-            // Pembersihan data null
+            // 3. Bersihkan data null agar tidak menimpa data yang sudah ada dengan null secara tidak sengaja
             $data = array_filter($data, fn($value) => !is_null($value));
 
+            // 4. Eksekusi Update
             DB::table('projects')->where('id', $id)->update($data);
+
+            // 5. Catat Log (Gunakan project_title dari data lama atau input baru)
+            $titleForLog = $request->project_title ?? $project->project_title;
+            $this->createLog('UPDATE_PROJECT', "Memperbarui detail project: {$titleForLog}", $request);
 
             return response()->json(['message' => 'Laporan Project Diperbarui'], 200);
         } catch (\Exception $e) {

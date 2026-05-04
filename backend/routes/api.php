@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
 
     // --- ANALYTICS ---
+    Route::get('/notifications', [ProjectController::class, 'getNotifications']);
     Route::get('/works/stats', [ProjectController::class, 'getStats']);
     Route::get('/reports/all', [ProjectController::class, 'getAllReports']);
     Route::get('/master-data/{type}', [ProjectController::class, 'getMasterDataByType']);
@@ -115,5 +116,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/finance/banks', [ProjectController::class, 'getBanks']);
     Route::post('/finance/banks', [ProjectController::class, 'storeBank']);
     Route::put('/finance/banks/{id}', [ProjectController::class, 'updateBank']);
-    Route::delete('/finance/banks/{id}', [ProjectController::class, 'deleteBank']);
+    Route::delete('/finance/banks/{id}', [ProjectController::class, 'deleteBank']); 
 });

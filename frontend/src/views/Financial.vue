@@ -526,13 +526,19 @@ watch(currentMainTab, (newTab) => {
               </div>
 
               <!-- List Transaksi -->
-              <div v-for="trx in recentTransactions" :key="trx.id" class="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 cursor-pointer">
+              <div v-for="trx in recentTransactions" :key="trx.id" 
+                   @click="trx.project_id ? $router.push('/projects/' + trx.project_id) : null"
+                   class="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
+                   :class="trx.project_id ? 'cursor-pointer hover:shadow-sm' : 'cursor-default'">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
                      :class="trx.type === 'inflow' ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'">
                   <i class="fas" :class="trx.type === 'inflow' ? 'fa-arrow-down' : 'fa-arrow-up'"></i>
                 </div>
                 <div class="flex-1">
-                  <p class="text-[10px] font-black text-slate-700 uppercase truncate max-w-[120px]">{{ trx.description || trx.project_name || 'General' }}</p>
+                  <div class="flex items-center gap-2">
+                    <p class="text-[10px] font-black text-slate-700 uppercase truncate max-w-[120px]">{{ trx.description || trx.project_name || 'General' }}</p>
+                    <i v-if="trx.project_id" class="fas fa-external-link-alt text-[8px] text-indigo-400" title="Click to view project"></i>
+                  </div>
                   <p class="text-[8px] font-bold text-slate-400 mt-0.5">{{ trx.transaction_date }}</p>
                 </div>
                 <div class="text-right">

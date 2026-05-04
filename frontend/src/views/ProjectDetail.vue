@@ -1070,14 +1070,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import api from '../api/axios';
 
 // ==========================================
 // 1. GLOBAL & CORE STATE
 // ==========================================
 const route = useRoute();
-const router = useRouter(); // Ditambahkan untuk navigasi
 const subTab = ref('overview');
 
 const project = ref<any>({

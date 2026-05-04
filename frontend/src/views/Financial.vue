@@ -33,6 +33,7 @@ const fetchMasterData = async () => {
       api.get('/companies'),
       api.get('/master-data/labels')
     ]);
+    debugger
     dbProjects.value = resProj.data.data || resProj.data;
     dbCOAs.value = resCOA.data.data || resCOA.data;
     dbBanks.value = resBank.data.data || resBank.data;
@@ -1073,7 +1074,7 @@ watch(currentMainTab, (newTab) => {
                   <select v-model="txForm.bank_from" class="w-full bg-white border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-bold uppercase outline-none focus:ring-2 ring-indigo-200 cursor-pointer">
                     <option value="">-- Asal Dana --</option>
                     <!-- PERUBAHAN KE DB LOKAL: dbBanks -->
-                    <option v-for="bank in dbBanks" :key="bank.id" :value="bank.id">{{ bank.name }}</option>
+                    <option v-for="bank in dbBanks" :key="bank.id" :value="bank.id">{{ bank.bank_name }}</option>
                   </select>
                 </div>
                 <div class="space-y-2">
@@ -1081,7 +1082,7 @@ watch(currentMainTab, (newTab) => {
                   <select v-model="txForm.bank_to" class="w-full bg-white border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-bold uppercase outline-none focus:ring-2 ring-indigo-200 cursor-pointer">
                     <option value="">-- Tujuan Dana --</option>
                     <!-- PERUBAHAN KE DB LOKAL: dbBanks -->
-                    <option v-for="bank in dbBanks" :key="bank.id" :value="bank.id">{{ bank.name }}</option>
+                    <option v-for="bank in dbBanks" :key="bank.id" :value="bank.id">{{ bank.bank_name }}</option>
                   </select>
                 </div>
               </div>

@@ -55,15 +55,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/work-orders', [ProjectController::class, 'storeWorkOrder']);
     Route::put('/work-orders/{id}', [ProjectController::class, 'updateWorkOrder']);
     Route::delete('/work-orders/{id}', [ProjectController::class, 'deleteWorkOrder']);
-    Route::post('/projects/{id}/team', [ProjectController::class, 'addTeamMember']);
-     // Route untuk hapus member dari project
-    Route::delete('/projects/{projectId}/team/{userId}', [ProjectController::class, 'removeTeamMember']);
+
+    // Route::post('/projects/{id}/team', [ProjectController::class, 'addTeamMember']);
+    // Route::delete('/projects/{projectId}/team/{userId}', [ProjectController::class, 'removeTeamMember']);
+    // Route untuk hapus member dari project
+    Route::get('/projects/{id}', [ProjectController::class, 'showProjectCompanies']);
+    Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);
 
     Route::post('/project-productions', [ProjectController::class, 'storeProduction']);
     Route::delete('/project-productions/{id}', [ProjectController::class, 'deleteProduction']);
 
-    Route::delete('/project-documents/{id}', [ProjectController::class, 'deleteDocument']);
-    Route::post('/project-documents', [ProjectController::class, 'storeDocument']);
+    // Route::delete('/project-documents/{id}', [ProjectController::class, 'deleteDocument']);
+    // Route::post('/project-documents', [ProjectController::class, 'storeDocument']);
+    Route::get('/project-documents', [ProjectController::class, 'indexDocuments']);
+    Route::post('/project-documents', [ProjectController::class, 'storeDocuments']);
+    Route::delete('/project-documents/{id}', [ProjectController::class, 'destroyDocuments']);
 
     Route::post('/project-supports', [ProjectController::class, 'storeSupport']);
     Route::put('/project-supports/{id}/status', [ProjectController::class, 'updateSupportStatus']);

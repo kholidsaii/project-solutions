@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AuditLog;
+use App\Models\Project;
+use App\Models\Company;
 class ProjectController extends Controller
 {
     private function createLog($action, $description, $request)
@@ -30,7 +32,10 @@ class ProjectController extends Controller
             'color'      => 'work_colors',
             'projects'   => 'projects',
             'banks'      => 'finance_banks',
-            'labels'     => 'finance_labels', // <--- TAMBAHKAN BARIS INI
+            'labels'     => 'finance_labels',
+            'tags_works' => 'master_tags_works',
+            'tags_team'  => 'master_tags_team',
+            'tags_docs'  => 'master_tags_docs', // <--- TAMBAHKAN BARIS INI
             default      => null
         };
     }   
@@ -623,96 +628,211 @@ class ProjectController extends Controller
             return response()->json(['error' => 'Gagal menghapus Work Order'], 500);
         }
     }
-    public function addTeamMember(Request $request, $id)
-    {
-        $request->validate(['user_id' => 'required', 'role' => 'required']);
+    // public function addTeamMember(Request $request, $id)
+    // {
+    //     $request->validate(['user_id' => 'required', 'role' => 'required']);
         
-        DB::table('project_teams')->insert([
-            'project_id' => $id,
-            'user_id' => $request->user_id,
-            'role' => $request->role,
-            'created_at' => now()
-        ]);
+    //     DB::table('project_teams')->insert([
+    //         'project_id' => $id,
+    //         'user_id' => $request->user_id,
+    //         'role' => $request->role,
+    //         'created_at' => now()
+    //     ]);
         
-        return response()->json(['message' => 'Member added']);
-    }
+    //     return response()->json(['message' => 'Member added']);
+    // }
 
-    public function removeTeamMember($projectId, $userId)
-    {
-        DB::table('project_teams')
-            ->where('project_id', $projectId)
-            ->where('user_id', $userId)
-            ->delete();
+    // public function removeTeamMember($projectId, $userId)
+    // {
+    //     DB::table('project_teams')
+    //         ->where('project_id', $projectId)
+    //         ->where('user_id', $userId)
+    //         ->delete();
             
-        return response()->json(['message' => 'Member removed']);
+    //     return response()->json(['message' => 'Member removed']);
+    // }
+    // Assign Banyak PT ke 1 Project (Multiple/Many-to-Many)
+    public function syncProjectCompanies(Request $request, $projectId)
+    {
+        $request->validate([
+            // Memastikan frontend mengirimkan array berisi ID PT. Contoh: [1, 3, 5]
+            'company_ids' => 'required|array' 
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Hapus semua relasi PT lama untuk project ini (Reset)
+            DB::table('project_companies')->where('project_id', $projectId)->delete();
+
+            // 2. Masukkan relasi PT yang baru dicentang di Frontend
+            $inserts = [];
+            foreach ($request->company_ids as $companyId) {
+                $inserts[] = [
+                    'project_id' => $projectId,
+                    'company_id' => $companyId,
+                    'role'       => 'Partner', // Bisa dibuat dinamis dari frontend nantinya
+                    'created_at' => now()
+                ];
+            }
+
+            // Insert massal
+            if (!empty($inserts)) {
+                DB::table('project_companies')->insert($inserts);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Project berhasil di-assign ke Perusahaan terkait!']);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Gagal menghubungkan PT dengan Project: ' . $e->getMessage()], 500);
+        }
     }
 
-public function storeProduction(Request $request)
-{
-    $request->validate([
-        'project_id' => 'required|exists:projects,id',
-        'title'      => 'required',
-        'type'       => 'required',
-        'content'    => 'required'
-    ]);
+    public function showProjectCompanies($id)
+    {
+        // Tambahkan with('companies') agar relasi M2M ikut terbawa ke Vue
+        $project = Project::with('companies')->find($id);
+        
+        if (!$project) {
+            return response()->json(['message' => 'Project not found'], 404);
+        }
+        
+        return response()->json($project);
+    }
 
-    // Gunakan Auth::id() untuk memperbaiki error P1013
-    DB::table('project_productions')->insert([
-        'project_id' => $request->project_id,
-        'user_id'    => Auth::id(), 
-        'title'      => $request->title,
-        'type'       => $request->type,
-        'content'    => $request->content,
-        'version'    => $request->version ?? '1.0.0',
-        'created_at' => now(),
-        'updated_at' => now()
-    ]);
+    public function storeProduction(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'title'      => 'required',
+            'type'       => 'required',
+            'content'    => 'required'
+        ]);
 
-    return response()->json(['message' => 'Product Deliverable Saved']);
-}
-public function storeDocument(Request $request)
-{
-    $request->validate([
-        'project_id' => 'required|exists:projects,id',
-        'title'      => 'required|string|max:255',
-        'file'       => 'required|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:10240', // Max 10MB
-    ]);
-
-    if ($request->hasFile('file')) {
-        $file = $request->file('file');
-        // Simpan ke folder public/uploads/documents
-        $path = $file->store('documents', 'public_uploads');
-
-        DB::table('project_documents')->insert([
+        // Gunakan Auth::id() untuk memperbaiki error P1013
+        DB::table('project_productions')->insert([
             'project_id' => $request->project_id,
-            'user_id'    => Auth::id(),
+            'user_id'    => Auth::id(), 
             'title'      => $request->title,
-            'file_path'  => $path,
-            'file_type'  => $file->getClientOriginalExtension(),
-            'file_size'  => $file->getSize(),
-            'description'=> $request->description,
+            'type'       => $request->type,
+            'content'    => $request->content,
+            'version'    => $request->version ?? '1.0.0',
             'created_at' => now(),
             'updated_at' => now()
         ]);
 
-        return response()->json(['message' => 'Document Uploaded Successfully']);
+        return response()->json(['message' => 'Product Deliverable Saved']);
+    }
+    // public function storeDocument(Request $request)
+    // {
+    //     $request->validate([
+    //         'project_id' => 'required|exists:projects,id',
+    //         'title'      => 'required|string|max:255',
+    //         'file'       => 'required|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg|max:10240', // Max 10MB
+    //     ]);
+
+    //     if ($request->hasFile('file')) {
+    //         $file = $request->file('file');
+    //         // Simpan ke folder public/uploads/documents
+    //         $path = $file->store('documents', 'public_uploads');
+
+    //         DB::table('project_documents')->insert([
+    //             'project_id' => $request->project_id,
+    //             'user_id'    => Auth::id(),
+    //             'title'      => $request->title,
+    //             'file_path'  => $path,
+    //             'file_type'  => $file->getClientOriginalExtension(),
+    //             'file_size'  => $file->getSize(),
+    //             'description'=> $request->description,
+    //             'created_at' => now(),
+    //             'updated_at' => now()
+    //         ]);
+
+    //         return response()->json(['message' => 'Document Uploaded Successfully']);
+    //     }
+
+    //     return response()->json(['message' => 'No file uploaded'], 400);
+    // }
+
+    // public function deleteDocument($id)
+    // {
+    //     $doc = DB::table('project_documents')->where('id', $id)->first();
+    //     if ($doc) {
+    //         // Hapus file fisik jika perlu
+    //         // Storage::disk('public_uploads')->delete($doc->file_path);
+            
+    //         DB::table('project_documents')->where('id', $id)->delete();
+    //         return response()->json(['message' => 'Document Deleted']);
+    //     }
+    //     return response()->json(['message' => 'Document not found'], 404);
+    // }
+    public function indexDocuments(Request $request)
+    {
+        $query = DB::table('activity_documents')
+            ->leftJoin('users', 'activity_documents.user_id', '=', 'users.id')
+            ->select('activity_documents.*', 'users.name as uploader_name');
+
+        // Jika difilter berdasarkan activity_id
+        if ($request->has('activity_id')) {
+            $query->where('activity_id', $request->activity_id);
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->get());
     }
 
-    return response()->json(['message' => 'No file uploaded'], 400);
-}
+    // Mengunggah dokumen baru
+    public function storeDocuments(Request $request)
+    {
+        $request->validate([
+            'activity_id' => 'required|integer',
+            'title'       => 'required|string|max:255',
+            'document'    => 'required|file|max:20480' // Max 20MB
+        ]);
 
-public function deleteDocument($id)
-{
-    $doc = DB::table('project_documents')->where('id', $id)->first();
-    if ($doc) {
-        // Hapus file fisik jika perlu
-        // Storage::disk('public_uploads')->delete($doc->file_path);
-        
-        DB::table('project_documents')->where('id', $id)->delete();
-        return response()->json(['message' => 'Document Deleted']);
+        try {
+            $file = $request->file('document');
+            $extension = $file->getClientOriginalExtension(); // Otomatis dapat: pdf, jpg, xlsx, dll
+            $size = $file->getSize(); // Ukuran file dalam bytes
+            
+            // Simpan file ke folder storage/app/public/documents
+            $path = $file->store('documents', 'public_uploads');
+
+            DB::table('activity_documents')->insert([
+                'activity_id' => $request->activity_id,
+                'user_id'     => Auth::id(),
+                'title'       => $request->title,
+                'file_path'   => $path,
+                'file_type'   => $extension,
+                'file_size'   => $size,
+                'created_at'  => now()
+            ]);
+
+            return response()->json(['message' => 'Dokumen berhasil diunggah!'], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal mengunggah dokumen: ' . $e->getMessage()], 500);
+        }
     }
-    return response()->json(['message' => 'Document not found'], 404);
-}
+
+    // Menghapus dokumen
+    public function destroyDocuments($id)
+    {
+        try {
+            $doc = DB::table('activity_documents')->where('id', $id)->first();
+            if (!$doc) return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
+
+            // Hapus file fisik dari storage (opsional tapi disarankan)
+            // Storage::disk('public_uploads')->delete($doc->file_path);
+
+            DB::table('activity_documents')->where('id', $id)->delete();
+            
+            return response()->json(['message' => 'Dokumen berhasil dihapus!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus dokumen'], 500);
+        }
+    }
+
 public function storeSupport(Request $request)
 {
     $request->validate([

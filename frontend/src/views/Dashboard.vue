@@ -20,7 +20,7 @@ const showNotifications = ref(false);
 
 const menus = [
   { name: 'Projects', icon: 'fas fa-tasks', color: 'bg-[#EF4444]', path: '/projects' },
-  { name: 'Teamwork', icon: 'fas fa-users', color: 'bg-[#3B82F6]', path: '/teamwork' },
+  // { name: 'Teamwork', icon: 'fas fa-users', color: 'bg-[#3B82F6]', path: '/teamwork' },
   { name: 'Financial', icon: 'fas fa-wallet', color: 'bg-[#10B981]', path: '/financial' },
   { name: 'Products', icon: 'fas fa-puzzle-piece', color: 'bg-[#FBBF24]', path: '/products' },
   { name: 'Reports', icon: 'fas fa-chart-bar', color: 'bg-[#F43F5E]', path: '/reports' },
@@ -113,7 +113,7 @@ onMounted(() => {
               <div class="absolute bottom-1 right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm"></div>
             </div>
             
-            <router-link to="/teamwork" class="bg-slate-50 hover:bg-[#2E3A8C] text-[#2E3A8C] hover:text-white px-3 py-1.5 rounded-xl border border-slate-100 transition-all flex items-center gap-1.5 active:scale-95 shadow-sm mb-0.5">
+            <router-link to="/projects" class="bg-slate-50 hover:bg-[#2E3A8C] text-[#2E3A8C] hover:text-white px-3 py-1.5 rounded-xl border border-slate-100 transition-all flex items-center gap-1.5 active:scale-95 shadow-sm mb-0.5">
               <i class="fas fa-users-cog text-[9px]"></i>
               <span class="text-[8px] font-black uppercase tracking-widest leading-none">Detail</span>
             </router-link>

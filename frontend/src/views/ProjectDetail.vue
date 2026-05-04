@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden min-h-[400px]">
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden min-h-100">
         <div class="flex justify-between items-center px-6 py-3 border-b border-slate-100">
           <div class="flex items-center gap-3 text-blue-900">
             <i class="fas fa-th-large text-sm"></i>
@@ -159,7 +159,7 @@
           <div v-if="subTab === 'aktivty'" class="space-y-6 animate-in fade-in duration-500">
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap lg:flex-nowrap gap-3 items-center shadow-inner">
               <input v-model="newTaskName" @keyup.enter="handleAddTask" type="text" placeholder="Task Name..." 
-                class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black text-slate-700 uppercase outline-none focus:ring-2 ring-blue-100 shadow-sm">
+                class="flex-1 min-w-50 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black text-slate-700 uppercase outline-none focus:ring-2 ring-blue-100 shadow-sm">
               <div class="relative flex items-center">
                 <i class="fas fa-tag absolute left-4 text-[10px] text-slate-300"></i>
                 <input v-model="newTaskCategory" type="text" placeholder="CATEGORY..." 
@@ -569,133 +569,250 @@
           </div>
 
           <!-- 10. FINANCIAL -->
-          <div v-if="subTab === 'financial'" class="space-y-8 animate-in fade-in zoom-in duration-500">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
-                <div class="absolute -right-4 -top-4 text-slate-50 opacity-10 group-hover:scale-110 transition-transform"><i class="fas fa-hand-holding-usd text-7xl"></i></div>
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Revenue</p>
-                <h3 class="text-xl font-black text-indigo-900 tracking-tighter">{{ formatCurrency(project?.contract_value) }}</h3>
-                <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-indigo-400 uppercase italic"><i class="fas fa-file-contract"></i> Contract Value</div>
-              </div>
-              <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Operational Cost</p>
-                <h3 class="text-xl font-black text-rose-600 tracking-tighter">{{ formatCurrency(calculateTotalExpenses()) }}</h3>
-                <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-rose-400 uppercase italic"><i class="fas fa-receipt"></i> WO + Purchasing</div>
-              </div>
-              <div class="p-6 rounded-3xl shadow-lg shadow-emerald-100 border border-emerald-400 relative overflow-hidden group transition-all" :class="calculateMargin() > 0 ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
-                <p class="text-[9px] font-black opacity-80 uppercase tracking-widest mb-1">Estimated Net Profit</p>
-                <h3 class="text-xl font-black tracking-tighter">{{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}</h3>
-                <div class="mt-4 flex items-center gap-2 text-[9px] font-black uppercase italic"><i class="fas fa-chart-line"></i> Margin: {{ calculateMargin().toFixed(1) }}%</div>
-              </div>
-              <div class="bg-slate-900 p-6 rounded-3xl shadow-xl relative overflow-hidden group border border-slate-700">
-                <div class="absolute -right-2 -bottom-2 text-white opacity-5 group-hover:rotate-12 transition-transform"><i class="fas fa-vault text-6xl"></i></div>
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Remaining Balance</p>
-                <h3 class="text-xl font-black text-emerald-400 tracking-tighter">{{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}</h3>
-                <div class="mt-4 flex items-center gap-2 text-[9px] font-black text-slate-500 uppercase italic"><i class="fas fa-shield-alt"></i> Safe to Spend</div>
+          <!-- 10. FINANCIAL (CASHBOOK & INVOICING) -->
+          <!-- ========================================== -->
+          <!-- 10. FINANCIAL (CASHBOOK & INVOICING)       -->
+          <!-- ========================================== -->
+          <div v-if="subTab === 'financial'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in zoom-in-95 duration-500">
+            
+            <!-- SIDEBAR NAVIGASI INTERNAL FINANCIAL (Modern Style) -->
+            <div class="lg:col-span-3 space-y-6">
+              <div class="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-200/60 sticky top-4">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 ml-2">Finance Modules</h3>
+                <div class="space-y-3">
+                  <button @click="activeFinanceNav = 'overview'" class="w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group" 
+                    :class="activeFinanceNav === 'overview' ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'hover:bg-slate-50 text-slate-500'">
+                    <div class="flex items-center gap-4">
+                      <i class="fas fa-chart-pie text-sm" :class="activeFinanceNav === 'overview' ? 'text-indigo-400' : 'text-slate-400'"></i>
+                      <span class="text-[11px] font-black uppercase tracking-tight">Analytics</span>
+                    </div>
+                    <i v-if="activeFinanceNav === 'overview'" class="fas fa-chevron-right text-[10px] text-slate-500"></i>
+                  </button>
+
+                  <button @click="activeFinanceNav = 'transaksi'" class="w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group" 
+                    :class="activeFinanceNav === 'transaksi' ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'hover:bg-slate-50 text-slate-500'">
+                    <div class="flex items-center gap-4">
+                      <i class="fas fa-exchange-alt text-sm" :class="activeFinanceNav === 'transaksi' ? 'text-emerald-400' : 'text-slate-400'"></i>
+                      <span class="text-[11px] font-black uppercase tracking-tight">Cashbook</span>
+                    </div>
+                    <i v-if="activeFinanceNav === 'transaksi'" class="fas fa-chevron-right text-[10px] text-slate-500"></i>
+                  </button>
+
+                  <button @click="activeFinanceNav = 'invoicing'" class="w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group" 
+                    :class="activeFinanceNav === 'invoicing' ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'hover:bg-slate-50 text-slate-500'">
+                    <div class="flex items-center gap-4">
+                      <i class="fas fa-file-invoice-dollar text-sm" :class="activeFinanceNav === 'invoicing' ? 'text-blue-400' : 'text-slate-400'"></i>
+                      <span class="text-[11px] font-black uppercase tracking-tight">Invoicing</span>
+                    </div>
+                    <i v-if="activeFinanceNav === 'invoicing'" class="fas fa-chevron-right text-[10px] text-slate-500"></i>
+                  </button>
+                </div>
+
+                <div class="mt-8 p-6 rounded-[2rem] bg-indigo-50/50 border border-indigo-100/50">
+                  <p class="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1 text-center">Net Position</p>
+                  <p class="text-sm font-black text-indigo-700 text-center tracking-tighter">{{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}</p>
+                </div>
               </div>
             </div>
 
-            <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-              <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                <div>
-                  <h4 class="text-xs font-black uppercase text-slate-800 tracking-widest">Financial Breakdown Analysis</h4>
-                  <p class="text-[8px] font-bold text-slate-400 uppercase mt-1">Detailed spending from all internal modules</p>
-                </div>
-                <div class="flex gap-2">
-                  <span class="text-[8px] font-black px-3 py-1 bg-white border border-slate-200 rounded-full text-blue-600 uppercase shadow-sm italic">
-                    <i class="fas fa-sync-alt fa-spin mr-1"></i> Real-time Sync
-                  </span>
-                </div>
-              </div>
-              <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="bg-slate-50/30 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                      <th class="p-6">Transaction Detail</th>
-                      <th class="p-6">Module Source</th>
-                      <th class="p-6 text-center">PIC / Vendor</th>
-                      <th class="p-6 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-50">
-                    <tr v-for="wo in project?.work_orders" :key="'wo-'+wo.id" class="text-[11px] font-bold text-slate-600 hover:bg-slate-50/50 transition-colors">
-                      <td class="p-6"><div class="flex items-center gap-3"><div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center text-[10px]"><i class="fas fa-tools"></i></div> <span>{{ wo.title }}</span></div></td>
-                      <td class="p-6"><span class="text-[8px] font-black px-2 py-1 bg-slate-100 rounded text-slate-400 uppercase">Workorder</span></td>
-                      <td class="p-6 text-center uppercase text-[10px]">{{ wo.pic_name }}</td>
-                      <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(wo.budget) }}</td>
-                    </tr>
-                    <tr v-for="p in project?.purchasings" :key="'p-'+p.id" class="text-[11px] font-bold text-slate-600 hover:bg-slate-50/50 transition-colors">
-                      <td class="p-6"><div class="flex items-center gap-3"><div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center text-[10px]"><i class="fas fa-shopping-cart"></i></div> <span>{{ p.item_name }}</span></div></td>
-                      <td class="p-6"><span class="text-[8px] font-black px-2 py-1 bg-slate-100 rounded text-slate-400 uppercase">Purchasing</span></td>
-                      <td class="p-6 text-center uppercase text-[10px]">{{ p.vendor_name || 'General Vendor' }}</td>
-                      <td class="p-6 text-right font-black text-slate-700 italic">{{ formatCurrency(p.total_price) }}</td>
-                    </tr>
-                    <tr v-if="!project?.work_orders?.length && !project?.purchasings?.length">
-                      <td colspan="4" class="p-20 text-center">
-                        <div class="opacity-20 flex flex-col items-center"><i class="fas fa-chart-pie text-5xl mb-4"></i><p class="text-[10px] font-black uppercase tracking-widest">No financial records found for this project</p></div>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr class="bg-slate-900 text-white font-black">
-                      <td colspan="3" class="p-6 text-[10px] uppercase tracking-[0.2em] italic">Project Burn Rate (Total Expenses)</td>
-                      <td class="p-6 text-right text-base italic text-rose-400">{{ formatCurrency(calculateTotalExpenses()) }}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-            
-            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex justify-between items-center">
-              <div>
-                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Mutasi Kas (Cashbook)</h3>
-                <p class="text-[9px] font-bold text-slate-400 uppercase mt-1">Uang Masuk & Keluar Project Ini</p>
-              </div>
-              <button @click="showTxModal = true" class="bg-emerald-600 text-white px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[0.98] transition-all flex items-center gap-2">
-                <i class="fas fa-plus"></i> Input Transaksi
-              </button>
-            </div>
+            <!-- CONTENT AREA FINANCIAL -->
+            <div class="lg:col-span-9 space-y-8">
+              
+              <!-- 10.1 FINANCIAL ANALYSIS (OVERVIEW) -->
+              <div v-if="activeFinanceNav === 'overview'" class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                   <div class="bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                      <div class="absolute -right-4 -top-4 w-20 h-20 bg-indigo-50 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 relative">Gross Revenue</p>
+                      <h3 class="text-xl font-black text-slate-800 tracking-tighter relative">{{ formatCurrency(project?.contract_value) }}</h3>
+                      <div class="mt-4 flex items-center gap-2 text-[8px] font-black text-indigo-500 uppercase italic relative"><i class="fas fa-file-contract"></i> Contract</div>
+                   </div>
 
-            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <table class="w-full text-left">
-                <thead class="bg-slate-50 border-b border-slate-100">
-                  <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    <th class="p-5">Tgl & Ref</th>
-                    <th class="p-5">Deskripsi</th>
-                    <th class="p-5">Akun COA</th>
-                    <th class="p-5 text-right">Nominal</th>
-                    <th class="p-5 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                  <tr v-if="projectTransactions.length === 0">
-                    <td colspan="5" class="p-12 text-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">Belum ada transaksi di project ini</td>
-                  </tr>
-                  <tr v-for="trx in projectTransactions" :key="trx.id" class="hover:bg-slate-50/50 transition-colors">
-                    <td class="p-5">
-                      <p class="text-[10px] font-black text-slate-700">{{ trx.transaction_date }}</p>
-                      <p class="text-[8px] font-bold text-slate-400 mt-1 uppercase">{{ trx.transaction_number }}</p>
-                    </td>
-                    <td class="p-5 text-[10px] font-bold text-slate-600">{{ trx.description || '-' }}</td>
-                    <td class="p-5">
-                      <p class="text-[9px] font-bold text-slate-800 uppercase">[{{ trx.coa_code }}] {{ trx.coa_name }}</p>
-                      <span class="inline-block mt-1 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[7px] font-black uppercase border border-slate-200">Via {{ trx.method }}</span>
-                    </td>
-                    <td class="p-5 text-right">
-                      <span class="text-xs font-black italic" :class="trx.type === 'inflow' ? 'text-emerald-500' : 'text-rose-500'">
-                        {{ trx.type === 'inflow' ? '+' : '-' }} {{ formatCurrency(trx.amount) }}
-                      </span>
-                    </td>
-                    <td class="p-5 text-center">
-                      <span class="px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest border" :class="trx.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : (trx.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100')">
-                        {{ trx.status }}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                   <div class="bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                      <div class="absolute -right-4 -top-4 w-20 h-20 bg-rose-50 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 relative">Burn Rate</p>
+                      <h3 class="text-xl font-black text-rose-600 tracking-tighter relative">{{ formatCurrency(calculateTotalExpenses()) }}</h3>
+                      <div class="mt-4 flex items-center gap-2 text-[8px] font-black text-rose-400 uppercase italic relative"><i class="fas fa-fire"></i> Expenses</div>
+                   </div>
+
+                   <div class="p-6 rounded-[2.5rem] shadow-xl relative overflow-hidden text-white group" :class="calculateMargin() > 0 ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-100' : 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-100'">
+                      <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-1000"></div>
+                      <p class="text-[9px] font-black opacity-80 uppercase tracking-widest mb-2">Net Profit</p>
+                      <h3 class="text-xl font-black tracking-tighter">{{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}</h3>
+                      <p class="mt-4 inline-flex items-center gap-2 text-[9px] font-black uppercase bg-white/20 px-3 py-1 rounded-full"><i class="fas fa-percentage"></i> Margin: {{ calculateMargin().toFixed(1) }}%</p>
+                   </div>
+
+                   <div class="bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-slate-200 relative overflow-hidden group border border-slate-800">
+                      <div class="absolute -right-2 -bottom-2 text-white opacity-5 group-hover:rotate-12 transition-transform duration-700"><i class="fas fa-vault text-6xl"></i></div>
+                      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Available Cash</p>
+                      <h3 class="text-xl font-black text-emerald-400 tracking-tighter">{{ formatCurrency((project?.contract_value || 0) - calculateTotalExpenses()) }}</h3>
+                      <div class="mt-4 flex items-center gap-2 text-[8px] font-black text-slate-500 uppercase italic"><i class="fas fa-shield-alt"></i> Safety Limit</div>
+                   </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-[3rem] overflow-hidden shadow-sm">
+                   <div class="p-8 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+                     <div>
+                       <h4 class="text-sm font-black uppercase text-slate-800 tracking-widest">Internal Spending Breakdown</h4>
+                       <p class="text-[9px] font-bold text-slate-400 uppercase mt-1">Real-time cost accumulation from activity modules</p>
+                     </div>
+                     <i class="fas fa-list-check text-slate-200 text-2xl"></i>
+                   </div>
+                   <table class="w-full text-left">
+                      <thead class="bg-slate-50/30 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        <tr>
+                          <th class="p-6">Module & Item Name</th>
+                          <th class="p-6 text-right">Value (IDR)</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-50">
+                        <tr v-for="wo in project?.work_orders" :key="'overview-wo-'+wo.id" class="group hover:bg-slate-50/50 transition-colors">
+                           <td class="p-6">
+                             <div class="flex items-center gap-4 font-black text-xs text-slate-700 uppercase">
+                               <div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-tools text-[10px]"></i></div>
+                               <span>{{ wo.title }}</span>
+                               <span class="text-[8px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-full border border-slate-200">Workorder</span>
+                             </div>
+                           </td>
+                           <td class="p-6 text-right font-black italic text-slate-800">{{ formatCurrency(wo.budget) }}</td>
+                        </tr>
+                        <tr v-for="p in project?.purchasings" :key="'overview-pur-'+p.id" class="group hover:bg-slate-50/50 transition-colors">
+                           <td class="p-6">
+                             <div class="flex items-center gap-4 font-black text-xs text-slate-700 uppercase">
+                               <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><i class="fas fa-shopping-cart text-[10px]"></i></div>
+                               <span>{{ p.item_name }}</span>
+                               <span class="text-[8px] px-2 py-0.5 bg-slate-100 text-slate-400 rounded-full border border-slate-200">Purchasing</span>
+                             </div>
+                           </td>
+                           <td class="p-6 text-right font-black italic text-slate-800">{{ formatCurrency(p.total_price) }}</td>
+                        </tr>
+                      </tbody>
+                   </table>
+                </div>
+              </div>
+
+              <!-- 10.2 CASHBOOK (TRANSAKSI) -->
+              <div v-if="activeFinanceNav === 'transaksi'" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-200 flex justify-between items-center">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100"><i class="fas fa-exchange-alt"></i></div>
+                    <div>
+                      <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Cashbook Ledger</h3>
+                      <p class="text-[9px] font-bold text-slate-400 uppercase mt-1">Operational Flow Records</p>
+                    </div>
+                  </div>
+                  <button @click="showTxModal = true" class="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-slate-800 hover:scale-[0.98] transition-all">
+                    <i class="fas fa-plus-circle mr-2"></i> Record Transaction
+                  </button>
+                </div>
+
+                <div class="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden p-2">
+                   <table class="w-full text-left">
+                      <thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                        <tr>
+                          <th class="p-6">Date / Ref</th>
+                          <th class="p-6">Account & Details</th>
+                          <th class="p-6 text-right">Amount (In/Out)</th>
+                          <th class="p-6 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-50 text-[11px] font-bold text-slate-600">
+                        <tr v-for="trx in projectTransactions" :key="trx.id" class="hover:bg-slate-50/50 transition-colors">
+                           <td class="p-6 uppercase">
+                             <p class="text-slate-800 font-black">{{ trx.transaction_date }}</p>
+                             <p class="text-[8px] text-slate-400 font-bold mt-1">{{ trx.transaction_number }}</p>
+                           </td>
+                           <td class="p-6">
+                             <p class="text-slate-700 font-black uppercase truncate max-w-[200px]">{{ trx.description }}</p>
+                             <div class="mt-1.5 flex items-center gap-2">
+                               <span class="text-[8px] px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded border border-indigo-100 uppercase font-black">[{{ trx.coa_code }}] {{ trx.coa_name }}</span>
+                               <span class="text-[8px] text-slate-300 font-black uppercase">via {{ trx.method }}</span>
+                             </div>
+                           </td>
+                           <td class="p-6 text-right font-black italic text-sm" :class="trx.type === 'inflow' ? 'text-emerald-500' : 'text-rose-500'">
+                             {{ trx.type === 'inflow' ? '+' : '-' }} {{ formatCurrency(trx.amount) }}
+                           </td>
+                           <td class="p-6 text-center">
+                             <span class="px-3 py-1.5 rounded-xl text-[8px] font-black border" :class="trx.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'">
+                               {{ trx.status }}
+                             </span>
+                           </td>
+                        </tr>
+                      </tbody>
+                   </table>
+                </div>
+              </div>
+
+              <!-- 10.3 INVOICING / BILLING -->
+              <div v-if="activeFinanceNav === 'invoicing'" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-100 relative overflow-hidden">
+                      <i class="fas fa-check-circle absolute right-8 bottom-8 text-6xl opacity-10"></i>
+                      <p class="text-[9px] font-black opacity-70 uppercase tracking-widest mb-2">Total Paid Invoices</p>
+                      <h3 class="text-2xl font-black tracking-tighter">{{ formatCurrency(calculateTotalInvoiced('Paid')) }}</h3>
+                    </div>
+                    <div class="bg-white border-2 border-rose-100 p-8 rounded-[2.5rem] shadow-sm relative overflow-hidden">
+                      <i class="fas fa-clock absolute right-8 bottom-8 text-6xl text-rose-50 opacity-50"></i>
+                      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Awaiting Payment</p>
+                      <h3 class="text-2xl font-black text-rose-500 tracking-tighter">{{ formatCurrency(calculateTotalInvoiced('Unpaid')) }}</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <h4 class="text-sm font-black uppercase text-slate-800 tracking-widest">Generate Official Invoice</h4>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-1.5">
+                      <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Invoice Label</label>
+                      <input v-model="invForm.title" placeholder="E.G. PROGRESS 50%" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase focus:ring-2 ring-blue-100">
+                    </div>
+                    <div class="space-y-1.5">
+                      <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Amount</label>
+                      <input v-model="invForm.amount" type="number" placeholder="0.00" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase focus:ring-2 ring-blue-100">
+                    </div>
+                    <div class="space-y-1.5">
+                      <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Due Date</label>
+                      <input v-model="invForm.due_date" type="date" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase focus:ring-2 ring-blue-100">
+                    </div>
+                  </div>
+
+                  <button @click="handleSaveInvoice" class="w-full bg-slate-900 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-slate-800 hover:scale-[0.99] transition-all">
+                    Generate & Notify Client
+                  </button>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-[3rem] overflow-hidden shadow-sm p-2">
+                  <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                      <tr>
+                        <th class="p-6">Invoice ID</th>
+                        <th class="p-6">Description</th>
+                        <th class="p-6 text-right">Amount</th>
+                        <th class="p-6 text-center">Status</th>
+                        <th class="p-6 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50 text-[11px] font-bold text-slate-600">
+                      <tr v-for="inv in project?.invoices" :key="inv.id" class="hover:bg-slate-50/50 transition-colors">
+                        <td class="p-6 font-mono text-blue-600 font-black tracking-tight">{{ inv.invoice_number }}</td>
+                        <td class="p-6 font-black uppercase text-slate-800">{{ inv.title }}</td>
+                        <td class="p-6 text-right font-black italic">{{ formatCurrency(inv.amount) }}</td>
+                        <td class="p-6 text-center">
+                           <span class="px-3 py-1.5 rounded-full text-[8px] font-black uppercase border" :class="inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'">{{ inv.status }}</span>
+                        </td>
+                        <td class="p-6 text-center">
+                          <button v-if="inv.status !== 'Paid'" @click="updateInvStatus(inv.id, 'Paid')" class="text-emerald-500 font-black uppercase text-[10px] hover:underline flex items-center justify-center gap-2 mx-auto transition-all"><i class="fas fa-check-circle"></i> Mark Paid</button>
+                          <span v-else class="text-slate-300 italic text-[10px]">Settled</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-            
           </div>
 
           <!-- 11. ACCOUNTING -->
@@ -729,7 +846,7 @@
               </div>
             </div>
 
-            <div class="lg:col-span-9 flex flex-col gap-6 min-h-[600px]">
+            <div class="lg:col-span-9 flex flex-col gap-6 min-h-150">
               <div class="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="relative w-full md:w-96">
                   <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-300"></i>
@@ -745,10 +862,10 @@
                   <table class="w-full text-left">
                     <thead class="bg-slate-50 rounded-t-[2.5rem]">
                       <tr class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        <th class="p-6 rounded-tl-[2rem]">Account Code & Name</th>
+                        <th class="p-6 rounded-tl-4xl">Account Code & Name</th>
                         <th class="p-6">Category Type</th>
                         <th class="p-6">Affiliated Entity</th>
-                        <th class="p-6 text-right rounded-tr-[2rem]">Actions</th>
+                        <th class="p-6 text-right rounded-tr-4xl">Actions</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
@@ -794,7 +911,7 @@
     </div>
     
     <!-- MODAL ACTIVITY: TASK DOCUMENTATION -->
-    <div v-if="showTaskModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div v-if="showTaskModal" class="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div class="flex items-center gap-3">
@@ -820,7 +937,7 @@
     </div>
 
     <!-- MODAL WORKORDER -->
-    <div v-if="showWOModal" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+    <div v-if="showWOModal" class="fixed inset-0 z-110 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
       <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <h4 class="text-xs font-black uppercase text-blue-900 tracking-widest">Work Order Assignment</h4>
@@ -851,7 +968,7 @@
     </div>
 
     <!-- MODAL TEAMWORK -->
-    <div v-if="showTeamModal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+    <div v-if="showTeamModal" class="fixed inset-0 z-120 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
       <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <h4 class="text-xs font-black uppercase text-indigo-900 tracking-widest">Assign Member to Project</h4>
@@ -877,7 +994,7 @@
     </div>
 
     <!-- MODAL TAMBAH TRANSAKSI KAS (KHUSUS PROJECT) -->
-    <div v-if="showTxModal" class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div v-if="showTxModal" class="fixed inset-0 z-200 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div class="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
         <div class="sticky top-0 bg-white/80 backdrop-blur-md p-8 border-b border-slate-100 flex justify-between items-center z-20">
           <div>
@@ -1055,6 +1172,8 @@ import api from '../api/axios';
 // ==========================================
 const route = useRoute();
 const subTab = ref('overview');
+// const activeActivityNav = ref('tasks'); 
+const activeFinanceNav = ref('overview');
 
 const project = ref<any>({
   project_title: '',

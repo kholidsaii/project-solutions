@@ -101,4 +101,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Project Invoices
     Route::post('/project-invoices', [ProjectController::class, 'storeInvoice']);
     Route::put('/project-invoices/{id}/status', [ProjectController::class, 'updateInvoiceStatus']);
+
+    // --- 3. FINANCE & ACCOUNTING ---
+    Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);
+    
+    // ---> TAMBAHKAN 2 BARIS INI <---
+    Route::get('/finance/transactions', [ProjectController::class, 'getTransactions']);
+    Route::post('/finance/transactions', [ProjectController::class, 'storeTransaction']);
+    // -------------------------------
+    Route::put('/accounting/coas/{id}', [ProjectController::class, 'updateCOA']);
+    Route::delete('/accounting/coas/{id}', [ProjectController::class, 'deleteCOA']);
+    // --- BANKING MASTER ---
+    Route::get('/finance/banks', [ProjectController::class, 'getBanks']);
+    Route::post('/finance/banks', [ProjectController::class, 'storeBank']);
+    Route::put('/finance/banks/{id}', [ProjectController::class, 'updateBank']);
+    Route::delete('/finance/banks/{id}', [ProjectController::class, 'deleteBank']);
 });

@@ -7,14 +7,15 @@
             <div class="w-12 h-12 bg-white rounded-lg border border-slate-200 flex items-center justify-center p-2">
               <img src="/logo-kerjapro.png" class="max-w-full max-h-full object-contain" />
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ID-{{ $route.params.id }}</span>
-                <h2 class="text-sm font-black text-blue-800 uppercase leading-none">{{ project?.project_title || 'Loading...' }}</h2>
-              </div>
-              <p class="text-[10px] font-bold text-slate-600 uppercase mt-0.5">Customer : {{ project?.client_name }}</p>
-              <p class="text-[8px] text-slate-400 italic">Crate by : Suhery Solutions 10/11/2024</p>
+            <!-- Ubah bagian ini di Header ProjectDetail.vue -->
+            <div class="flex items-center gap-2">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ID-{{ $route.params.id }}</span>
+            <h2 class="text-sm font-black text-blue-800 uppercase leading-none">{{ project?.project_title || 'Loading...' }}</h2>
             </div>
+            <!-- Ini baris yang diubah (Menambahkan PT) -->
+            <p class="text-[10px] font-bold text-slate-600 uppercase mt-0.5">
+            PT: <span class="text-indigo-600 font-black">{{ project?.affiliated_pt_name || 'Independent' }}</span> | Customer : {{ project?.client_name }}
+            </p>
           </div>
           <div class="flex items-center gap-3">
              <button @click="$router.push('/projects')" class="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-2">
@@ -1069,11 +1070,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import api from '../api/axios';
 
+// ==========================================
+// 1. GLOBAL & CORE STATE
+// ==========================================
 const route = useRoute();
+const router = useRouter(); // Ditambahkan untuk navigasi
 const subTab = ref('overview');
+
 const project = ref<any>({
   project_title: '',
   client_name: '',
@@ -1085,22 +1091,13 @@ const project = ref<any>({
   finish_date: '',
   description: ''
 });
-const allCompanies = ref<any[]>([]);
 
-onMounted(async () => {
-  await fetchMaster();
-  await fetchDetail();
-  
-  // Fetch daftar PT agar dropdown Owner di Overview muncul
-  const resComp = await api.get('/companies');
-  allCompanies.value = resComp.data;
-});
-// Tambahkan interface atau gunakan 'any' supaya TypeScript gak marah
+const allCompanies = ref<any[]>([]);
 const masterData = ref({
-    categories: [] as any[],
-  status: [] as any[],    // Tambahkan 'as any[]'
-  priority: [] as any[],  // Tambahkan 'as any[]'
-  package: [] as any[]    // Tambahkan 'as any[]'
+  categories: [] as any[],
+  status: [] as any[],
+  priority: [] as any[],
+  package: [] as any[]
 });
 
 const fetchMaster = async () => {
@@ -1110,7 +1107,7 @@ const fetchMaster = async () => {
   } catch (e) {
     console.error("Gagal load master", e);
   }
-}
+};
 
 const fetchDetail = async () => {
   try {
@@ -1122,13 +1119,9 @@ const fetchDetail = async () => {
   }
 };
 
-// FUNGSI AUTO-SAVE: Dipanggil setiap ada perubahan input
-// Ganti fungsi updateDetail di ProjectDetail.vue menjadi ini:
 const updateDetail = async () => {
   try {
     const id = route.params.id;
-    
-    // Kirim data ke endpoint khusus detail project
     await api.put(`/projects/detail/${id}`, {
       project_title: project.value.project_title,
       client_name: project.value.client_name,
@@ -1142,22 +1135,49 @@ const updateDetail = async () => {
       category_id: project.value.category_id,
       company_id: project.value.company_id,
     });
-    
     console.log("Laporan project berhasil diperbarui secara otomatis");
-    // Opsional: fetchDetail() jika ingin sinkronisasi ulang data kalkulasi (seperti total_day)
   } catch (e) {
     console.error("Gagal memperbarui laporan detail", e);
   }
 };
-// bagian aktivity
-// State Management untuk Aktivty
+
+// ==========================================
+// 2. UTILITIES (FORMATTING)
+// ==========================================
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+};
+
+const formatDate = (dateStr: any) => {
+  if (!dateStr) return 'Recently';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
+const statusClass = (status: string) => {
+  switch (status) {
+    case 'Draft': return 'bg-slate-100 text-slate-500 border-slate-200';
+    case 'Sent': return 'bg-blue-50 text-blue-600 border-blue-100';
+    case 'Done': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    default: return 'bg-slate-100 text-slate-500 border-slate-200';
+  }
+};
+
+const priorityColor = (p: string) => {
+  if (p === 'Urgent') return 'bg-rose-100 text-rose-600 border-rose-200';
+  if (p === 'High') return 'bg-amber-100 text-amber-600 border-amber-200';
+  return 'bg-blue-100 text-blue-600 border-blue-200';
+};
+
+// ==========================================
+// 3. TAB: AKTIVTY (TASK MANAGEMENT)
+// ==========================================
 const newTaskName = ref('');
-const newTaskCategory = ref('GENERAL'); // Default kategori
+const newTaskCategory = ref('GENERAL');
 const newTaskPriority = ref('Medium');
 const showTaskModal = ref(false);
 const activeTask = ref<any>(null);
 
-// Fungsi Tambah Task
 const handleAddTask = async () => {
   if (!newTaskName.value) return;
   try {
@@ -1167,28 +1187,25 @@ const handleAddTask = async () => {
       task_category: newTaskCategory.value.toUpperCase(),
       priority: newTaskPriority.value
     });
-    newTaskName.value = ''; // Reset nama task saja, kategori biar tetep kalau mau input banyak sekaligus
+    newTaskName.value = ''; 
     await fetchDetail();
   } catch (e) {
     console.error("Gagal simpan task", e);
   }
 };
 
-// Fungsi Buka Modal Detail
 const openTaskDetail = (task: any) => {
-  activeTask.value = { ...task }; // Clone data agar tidak ngerubah list sebelum disave
+  activeTask.value = { ...task };
   showTaskModal.value = true;
 };
 
-// Fungsi Update Deskripsi Task (Documentation)
 const saveTaskDetail = async () => {
   try {
-    // Kita buat endpoint PUT di Laravel nanti
     await api.put(`/project-tasks/${activeTask.value.id}`, {
       description: activeTask.value.description
     });
     showTaskModal.value = false;
-    await fetchDetail(); // Refresh agar deskripsi terbaru masuk ke project object
+    await fetchDetail(); 
     alert("Documentation Updated!");
   } catch (e) {
     console.error(e);
@@ -1196,23 +1213,18 @@ const saveTaskDetail = async () => {
   }
 };
 
-
-// 2. Toggle Status Selesai / Belum
 const handleToggleTask = async (task: any) => {
   try {
     await api.put(`/project-tasks/${task.id}/toggle`);
-    // Refresh data untuk update progress_percent project secara otomatis
     await fetchDetail();
   } catch (e) {
     console.error("Gagal update status task", e);
   }
 };
 
-// 3. Hapus Task
 const handleDeleteTask = async (taskId: number) => {
   if (!confirm('Hapus aktivitas ini?')) return;
   try {
-    // Pastikan kamu punya route delete ini di Laravel
     await api.delete(`/project-tasks/${taskId}`);
     await fetchDetail();
   } catch (e) {
@@ -1220,12 +1232,9 @@ const handleDeleteTask = async (taskId: number) => {
   }
 };
 
-// Modifikasi formatDate agar lebih rapi (opsional)
-const formatDate = (dateStr: any) => {
-  if (!dateStr) return 'Recently';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-};
+// ==========================================
+// 4. TAB: WORKORDER
+// ==========================================
 const showWOModal = ref(false);
 const woForm = ref({
   id: null as number | null,
@@ -1250,48 +1259,32 @@ const saveWO = async () => {
       await api.post('/work-orders', payload);
     }
     showWOModal.value = false;
-    await fetchDetail(); // Harus update API backend agar project juga load work_orders
+    await fetchDetail(); 
   } catch (e) {
     console.error(e);
   }
 };
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
-};
-
-const statusClass = (status: string) => {
-  switch (status) {
-    case 'Draft': return 'bg-slate-100 text-slate-500 border-slate-200';
-    case 'Sent': return 'bg-blue-50 text-blue-600 border-blue-100';
-    case 'Done': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-    default: return 'bg-slate-100 text-slate-500 border-slate-200';
-  }
-};
 const editWO = (wo: any) => {
-  woForm.value = { 
-    id: wo.id,
-    title: wo.title,
-    pic_name: wo.pic_name,
-    budget: wo.budget,
-    description: wo.description,
-    status: wo.status
-  };
+  woForm.value = { id: wo.id, title: wo.title, pic_name: wo.pic_name, budget: wo.budget, description: wo.description, status: wo.status };
   showWOModal.value = true;
 };
 
-// Fungsi untuk menghapus Workorder
 const deleteWO = async (id: number) => {
   if (!confirm('Apakah anda yakin ingin menghapus Work Order ini?')) return;
   try {
     await api.delete(`/work-orders/${id}`);
-    await fetchDetail(); // Refresh data agar list WO terbaru muncul
+    await fetchDetail();
     console.log("Workorder Deleted");
   } catch (e) {
     console.error("Gagal menghapus WO", e);
     alert("Gagal menghapus Work Order");
   }
 };
+
+// ==========================================
+// 5. TAB: TEAMWORK
+// ==========================================
 const showTeamModal = ref(false);
 const allUsers = ref<any[]>([]);
 const teamForm = ref({
@@ -1299,10 +1292,9 @@ const teamForm = ref({
   role: ''
 });
 
-// Load list semua user di sistem untuk dipilih di modal
 const openAddMemberModal = async () => {
   try {
-    const res = await api.get('/users'); // Ambil dari API User kamu
+    const res = await api.get('/users'); 
     allUsers.value = res.data;
     showTeamModal.value = true;
   } catch (e) {
@@ -1317,7 +1309,7 @@ const addMember = async () => {
     await api.post(`/projects/${route.params.id}/team`, teamForm.value);
     showTeamModal.value = false;
     teamForm.value = { user_id: null, role: '' };
-    await fetchDetail(); // Refresh data utama project
+    await fetchDetail(); 
   } catch (e) {
     alert("User sudah ada di project atau terjadi error");
   }
@@ -1332,6 +1324,10 @@ const removeMember = async (userId: number) => {
     console.error(e);
   }
 };
+
+// ==========================================
+// 6. TAB: PRODUKS (DELIVERABLES)
+// ==========================================
 const prodForm = ref({
   title: '',
   type: 'Link',
@@ -1346,9 +1342,7 @@ const handleSaveProduction = async () => {
       project_id: route.params.id,
       ...prodForm.value
     });
-    // Reset Form
     prodForm.value = { title: '', type: 'Link', version: '1.0.0', content: '' };
-    // Refresh Data
     await fetchDetail();
     alert("Production data saved!");
   } catch (e) {
@@ -1365,22 +1359,22 @@ const handleDeleteProduction = async (id: number) => {
     console.error(e);
   }
 };
-// State untuk Document
+
+// ==========================================
+// 7. TAB: DOCUMENT
+// ==========================================
 const docForm = ref({ title: '', file: null as File | null });
 const loadingDoc = ref(false);
 
-// Fungsi untuk menangkap file dari input
 const handleFileChange = (e: any) => {
   docForm.value.file = e.target.files[0];
 };
 
-// Fungsi Upload (Save) Document
 const uploadDoc = async () => {
   if (!docForm.value.title || !docForm.value.file) {
     alert("Harap isi Judul dan Pilih File!");
     return;
   }
-  
   loadingDoc.value = true;
   const formData = new FormData();
   formData.append('project_id', route.params.id as string);
@@ -1391,13 +1385,10 @@ const uploadDoc = async () => {
     await api.post('/project-documents', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    
-    // Reset form setelah berhasil
     docForm.value = { title: '', file: null };
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    if (fileInput) fileInput.value = ''; // Reset input file fisiknya
-    
-    await fetchDetail(); // Refresh data utama
+    if (fileInput) fileInput.value = ''; 
+    await fetchDetail();
     console.log("Document Uploaded!");
   } catch (e) {
     console.error("Gagal upload", e);
@@ -1407,18 +1398,21 @@ const uploadDoc = async () => {
   }
 };
 
-// FUNGSI DELETE DOC (Ini yang bikin error tadi)
 const deleteDoc = async (id: number) => {
   if (!confirm('Hapus dokumen ini secara permanen?')) return;
   try {
     await api.delete(`/project-documents/${id}`);
-    await fetchDetail(); // Refresh list agar dokumen yang dihapus hilang
+    await fetchDetail(); 
     console.log("Document Deleted");
   } catch (e) {
     console.error("Gagal hapus doc", e);
     alert("Gagal menghapus dokumen");
   }
 };
+
+// ==========================================
+// 8. TAB: SUPPORT (CRM/TICKETING)
+// ==========================================
 const supportForm = ref({ subject: '', priority: 'Medium', message: '' });
 
 const handleSaveSupport = async () => {
@@ -1444,12 +1438,9 @@ const updateTicketStatus = async (id: number, event: any) => {
   }
 };
 
-const priorityColor = (p: string) => {
-  if (p === 'Urgent') return 'bg-rose-100 text-rose-600 border-rose-200';
-  if (p === 'High') return 'bg-amber-100 text-amber-600 border-amber-200';
-  return 'bg-blue-100 text-blue-600 border-blue-200';
-};
-// --- STATE MARKETING ---
+// ==========================================
+// 9. TAB: MARKETING
+// ==========================================
 const marketForm = ref({
   title: '',
   type: 'Upselling',
@@ -1458,27 +1449,14 @@ const marketForm = ref({
   budget_estimate: 0
 });
 
-// Fungsi Simpan Opportunity Marketing
 const handleSaveMarketing = async () => {
-  // Validasi simpel
   if (!marketForm.value.title) return alert("Opportunity Title harus diisi!");
-
   try {
     await api.post('/project-marketings', {
       project_id: route.params.id,
       ...marketForm.value
     });
-
-    // Reset Form setelah sukses
-    marketForm.value = {
-      title: '',
-      type: 'Upselling',
-      next_follow_up: '',
-      notes: '',
-      budget_estimate: 0
-    };
-
-    // Refresh data utama agar list marketing muncul di bawah
+    marketForm.value = { title: '', type: 'Upselling', next_follow_up: '', notes: '', budget_estimate: 0 };
     await fetchDetail();
     console.log("Marketing Opportunity Saved!");
   } catch (e) {
@@ -1487,17 +1465,20 @@ const handleSaveMarketing = async () => {
   }
 };
 
-// Fungsi Hapus Opportunity Marketing
 const handleDeleteMarketing = async (id: number) => {
   if (!confirm('Hapus data marketing ini?')) return;
   try {
     await api.delete(`/project-marketings/${id}`);
-    await fetchDetail(); // Refresh list
+    await fetchDetail(); 
     console.log("Marketing Deleted");
   } catch (e) {
     console.error(e);
   }
 };
+
+// ==========================================
+// 10. TAB: PURCHASING
+// ==========================================
 const purchaseForm = ref({
   item_name: '',
   vendor_name: '',
@@ -1530,36 +1511,29 @@ const handleDeletePurchase = async (id: number) => {
     console.error(e);
   }
 };
-// --- STATE & FORM UNTUK ACCOUNTING ---
+
+// ==========================================
+// 11. TAB: FINANCIAL & ACCOUNTING
+// ==========================================
 const invForm = ref({
   title: '',
   amount: 0,
   due_date: ''
 });
 
-// --- LOGIC FINANCIAL (AGREGASI DATA) ---
-
-// 1. Menghitung Total Pengeluaran (Workorder + Purchasing)
 const calculateTotalExpenses = () => {
   const woTotal = project.value?.work_orders?.reduce((t: any, wo: any) => t + parseFloat(wo.budget || 0), 0) || 0;
   const purchaseTotal = project.value?.purchasings?.reduce((t: any, p: any) => t + parseFloat(p.total_price || 0), 0) || 0;
   return woTotal + purchaseTotal;
 };
 
-// 2. Menghitung Margin Keuntungan dalam Persen
-// Di bagian <script setup>
 const calculateMargin = () => {
   const revenue = parseFloat(project.value?.contract_value || 0);
   const expenses = calculateTotalExpenses();
   if (revenue === 0) return 0;
-  
-  // Jangan pakai .toFixed(1) di sini agar return-nya tetap Number
   return ((revenue - expenses) / revenue * 100);
 };
 
-// --- LOGIC ACCOUNTING (INVOICING) ---
-
-// 3. Menghitung Total Invoice Berdasarkan Status (Paid / Unpaid)
 const calculateTotalInvoiced = (status: string) => {
   if (!project.value?.invoices) return 0;
   return project.value.invoices
@@ -1567,7 +1541,6 @@ const calculateTotalInvoiced = (status: string) => {
     .reduce((t: any, inv: any) => t + parseFloat(inv.amount || 0), 0);
 };
 
-// 4. Menyimpan Invoice Baru
 const handleSaveInvoice = async () => {
   if (!invForm.value.title || invForm.value.amount <= 0) {
     alert("Harap isi Judul dan Nominal Invoice!");
@@ -1578,16 +1551,14 @@ const handleSaveInvoice = async () => {
       project_id: route.params.id,
       ...invForm.value
     });
-    // Reset Form
     invForm.value = { title: '', amount: 0, due_date: '' };
-    await fetchDetail(); // Refresh data utama
+    await fetchDetail(); 
     alert("Invoice berhasil dibuat!");
   } catch (e) {
     console.error(e);
   }
 };
 
-// 5. Update Status Pembayaran (Mark as Paid)
 const updateInvStatus = async (id: number, status: string) => {
   try {
     await api.put(`/project-invoices/${id}/status`, { status });
@@ -1596,8 +1567,16 @@ const updateInvStatus = async (id: number, status: string) => {
     console.error(e);
   }
 };
+
+// ==========================================
+// 12. LIFECYCLE HOOKS
+// ==========================================
 onMounted(async () => {
   await fetchMaster();
   await fetchDetail();
+  
+  // Fetch daftar PT agar dropdown Owner di Overview muncul
+  const resComp = await api.get('/companies');
+  allCompanies.value = resComp.data;
 });
 </script>

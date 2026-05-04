@@ -18,9 +18,11 @@ class ProjectController extends Controller
             'package'    => 'work_packages',
             'color'      => 'work_colors',
             'projects'   => 'projects',
+            'banks'      => 'finance_banks',
+            'labels'     => 'finance_labels', // <--- TAMBAHKAN BARIS INI
             default      => null
         };
-    }
+    }   
     public function index(Request $request)
     {
         try {
@@ -1024,17 +1026,65 @@ public function getTopOutstanding()
     public function storeCOA(Request $request)
     {
         $request->validate(['code' => 'required', 'name' => 'required', 'category' => 'required']);
-        DB::table('accounting_coas')->insert([
-            'pt_id' => $request->pt_id,
-            'code' => $request->code,
-            'name' => $request->name,
-            'category' => $request->category,
-            'header_id' => $request->header_id,
-            'created_at' => now()
+        
+        try {
+            DB::table('accounting_coas')->insert([
+                'pt_id' => $request->pt_id ?: null, // <-- PASTIKAN MENGGUNAKAN ?: null
+                'code' => $request->code,
+                'name' => $request->name,
+                'category' => $request->category,
+                // 'header_id' => $request->header_id,
+                'created_at' => now()
+            ]);
+            return response()->json(['message' => 'COA Account Created']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    // --- UPDATE MASTER COA ---
+    public function updateCOA(Request $request, $id)
+    {
+        $request->validate([
+            'code' => 'required',
+            'name' => 'required',
+            'category' => 'required'
         ]);
-        return response()->json(['message' => 'COA Account Created']);
+
+        try {
+            DB::table('accounting_coas')->where('id', $id)->update([
+                'pt_id' => $request->pt_id ?: null, // Ubah jadi null jika dikosongkan (Personal)
+                'code' => $request->code,
+                'name' => $request->name,
+                'category' => $request->category,
+                // 'header_id' => $request->header_id, // Buka komen ini jika nanti ada fitur Sub-Akun
+                'updated_at' => now()
+            ]);
+            
+            return response()->json(['message' => 'Akun COA berhasil diperbarui!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal memperbarui COA: ' . $e->getMessage()], 500);
+        }
     }
 
+    // --- DELETE MASTER COA ---
+    public function deleteCOA($id)
+    {
+        try {
+            DB::table('accounting_coas')->where('id', $id)->delete();
+            return response()->json(['message' => 'Akun COA berhasil dihapus!']);
+            
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Block pengamanan ERP: 
+            // Jika akun COA sudah pernah dipakai untuk transaksi, database tidak akan mengizinkan penghapusan 
+            // agar laporan keuangan tidak rusak (relasi Foreign Key restrict).
+            return response()->json([
+                'error' => 'Gagal: Akun COA ini tidak bisa dihapus karena sudah memiliki riwayat transaksi/jurnal.'
+            ], 500);
+            
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus COA: ' . $e->getMessage()], 500);
+        }
+    }
     public function getJournals(Request $request)
     {
         $query = DB::table('accounting_journals')
@@ -1129,4 +1179,152 @@ public function getCashFlow(Request $request)
         return response()->json(['error' => $e->getMessage()], 500);
     }
 }
+
+// 1. GET ALL TRANSACTIONS (Untuk Tabel Vue)
+    public function getTransactions(Request $request)
+    {
+        try {
+            $query = DB::table('finance_transactions')
+                ->leftJoin('projects', 'finance_transactions.project_id', '=', 'projects.id')
+                ->leftJoin('accounting_coas', 'finance_transactions.coa_id', '=', 'accounting_coas.id')
+                ->select(
+                    'finance_transactions.*',
+                    'projects.project_title as project_name',
+                    'accounting_coas.name as coa_name',
+                    'accounting_coas.code as coa_code'
+                );
+
+            // Filter by Status (Pending, Approved, etc)
+            if ($request->has('status') && $request->status !== 'all') {
+                $query->where('finance_transactions.status', $request->status);
+            }
+            
+            // Filter by Type (Inflow / Outflow)
+            if ($request->has('type') && $request->type !== 'all') {
+                $query->where('finance_transactions.type', $request->type);
+            }
+
+            // Filter by Project
+            if ($request->has('project_id') && $request->project_id !== 'all') {
+                $query->where('finance_transactions.project_id', $request->project_id);
+            }
+
+            $transactions = $query->orderBy('transaction_date', 'desc')->get();
+            return response()->json($transactions, 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    // 2. STORE TRANSAKSI BARU (Dari Form Vue)
+    public function storeTransaction(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:inflow,outflow',
+            'date' => 'required|date',
+            'amount' => 'required|numeric|min:1',
+            'coa_id' => 'required',
+            'method' => 'required',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120' // Max 5MB
+        ]);
+
+        try {
+            $filePath = null;
+            if ($request->hasFile('attachment')) {
+                $filePath = $request->file('attachment')->store('finance_attachments', 'public_uploads');
+            }
+
+            // Auto-generate Transaction Number (TRX-YYMMDD-RANDOM)
+            $trxNumber = 'TRX-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -4));
+
+            DB::table('finance_transactions')->insert([
+                'transaction_number' => $trxNumber,
+                'transaction_date' => $request->date,
+                'ref_number' => $request->ref_number,
+                'type' => $request->type,
+                'project_id' => $request->project_id ?: null,
+                'coa_id' => $request->coa_id,
+                'method' => $request->method,
+                'bank_from' => $request->bank_from,
+                'bank_to' => $request->bank_to,
+                'amount' => $request->amount,
+                'description' => $request->description,
+                'label_id' => $request->label_id,
+                'attachment_path' => $filePath,
+                'status' => 'Pending', // Default selalu Pending butuh approval
+                'created_by' => Auth::id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            return response()->json(['message' => 'Transaksi berhasil diajukan dan menunggu Approval!'], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menyimpan transaksi: ' . $e->getMessage()], 500);
+        }
+    }
+    // --- MASTER BANKING ---
+    public function getBanks(Request $request)
+    {
+        $query = DB::table('finance_banks');
+        if ($request->has('pt_id') && $request->pt_id !== 'all') {
+            if ($request->pt_id === 'personal') {
+                $query->whereNull('pt_id');
+            } else {
+                $query->where('pt_id', $request->pt_id);
+            }
+        }
+        return response()->json($query->orderBy('id', 'desc')->get());
+    }
+
+    public function storeBank(Request $request)
+    {
+        $request->validate([
+            'bank_name' => 'required',
+            'account_name' => 'required',
+            'account_number' => 'required'
+        ]);
+
+        try {
+            DB::table('finance_banks')->insert([
+                'pt_id' => $request->pt_id ?: null,
+                'bank_name' => $request->bank_name,
+                'account_name' => $request->account_name,
+                'account_number' => $request->account_number,
+                'branch_office' => $request->branch_office,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            return response()->json(['message' => 'Rekening Bank berhasil ditambahkan!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateBank(Request $request, $id)
+    {
+        try {
+            DB::table('finance_banks')->where('id', $id)->update([
+                'pt_id' => $request->pt_id ?: null,
+                'bank_name' => $request->bank_name,
+                'account_name' => $request->account_name,
+                'account_number' => $request->account_number,
+                'branch_office' => $request->branch_office,
+                'updated_at' => now()
+            ]);
+            return response()->json(['message' => 'Rekening Bank berhasil diupdate!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function deleteBank($id)
+    {
+        try {
+            DB::table('finance_banks')->where('id', $id)->delete();
+            return response()->json(['message' => 'Rekening Bank berhasil dihapus!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal menghapus, data mungkin sedang digunakan.'], 500);
+        }
+    }
 }

@@ -1334,7 +1334,7 @@ public function getCashFlow(Request $request)
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
-
+            $this->createLog('CREATE_TRANSACTION', "Mencatat transaksi baru sebesar " . number_format($request->amount), $request);
             return response()->json(['message' => 'Transaksi berhasil diajukan dan menunggu Approval!'], 201);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal menyimpan transaksi: ' . $e->getMessage()], 500);

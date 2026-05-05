@@ -46,76 +46,130 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        // 1. Validasi semua data yang masuk
         $data = $request->validate([
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
             'role' => 'required',
-            'company_id' => 'nullable|exists:companies,id', // Tambahkan ini
-            'position' => 'nullable|string'                // Tambahkan ini
+            'company_id' => 'nullable|exists:companies,id',
+            'position' => 'nullable|string',
+            'phone' => 'nullable|string|max:20',
+            'hourly_rate' => 'nullable|numeric',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
         ]);
 
+        // 2. Logika untuk memproses file gambar Avatar
+        $avatarPath = null; // Default kosong jika tidak ada upload
+        if ($request->hasFile('avatar')) {
+            // Simpan file ke storage 'public_uploads' di dalam folder 'avatars'
+            $avatarPath = $request->file('avatar')->store('avatars', 'public_uploads');
+        }
+
+        // 3. Simpan data user ke database
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => bcrypt($data['password']),
             'role' => $data['role'],
-            'company_id' => $request->company_id, // Simpan ke DB
-            'position' => $request->position      // Simpan ke DB
+            'company_id' => $request->company_id, 
+            'position' => $request->position,      
+            'phone' => $request->phone,            
+            'hourly_rate' => $request->hourly_rate,
+            'avatar_url' => $avatarPath // Sekarang variabel ini sudah terdefinisi!
         ]);
 
-        // ... sisa kode log ...
-    }
+        // 4. Catat ke Audit Log agar aktivitas terlacak
+        \App\Models\AuditLog::create([
+            'user_id'     => $user->id,
+            'user_name'   => $user->name,
+            'action'      => 'REGISTER',
+            'description' => "Mendaftarkan user baru: " . $user->name,
+            'ip_address'  => $request->ip()
+        ]);
+
+        // 5. Kirim respon sukses ke Vue
+        return response()->json([
+            'message' => 'User berhasil didaftarkan!',
+            'user' => $user
+        ], 201);
+    }   
     
-    // 1. Ambil semua daftar user untuk halaman Teamwork
-    public function index()
+    
+    // Ambil semua daftar user untuk halaman Teamwork (DENGAN FILTER & PAGINATION)
+    public function index(Request $request) 
     {
         try {
-            // TAMBAHKAN company_id dan position di sini Lid!
-            $users = User::select('id', 'name', 'email', 'role', 'company_id', 'position', 'created_at')
-                        ->orderBy('created_at', 'desc')
-                        ->get();
+            // Mulai query dasar
+            // PERBAIKAN: Tambahkan 'phone' dan 'hourly_rate' di dalam fungsi select() di bawah ini:
+            $query = User::select('id', 'name', 'email', 'role', 'company_id', 'position', 'phone', 'hourly_rate','avatar_url', 'created_at')
+                         ->orderBy('created_at', 'desc');
+
+            // --- LOGIKA FILTERING (GLOBAL KEYWORD MATCHING) ---
+            // Jika Vue mengirimkan parameter '?tag_search=...'
+            if ($request->filled('tag_search')) {
+                $keyword = $request->tag_search;
+                
+                $query->where(function($q) use ($keyword) {
+                    // Gunakan ILIKE (khusus PostgreSQL) agar pencarian mengabaikan huruf besar/kecil
+                    $q->where('role', 'ILIKE', "%{$keyword}%")
+                      ->orWhere('position', 'ILIKE', "%{$keyword}%")
+                      ->orWhere('name', 'ILIKE', "%{$keyword}%");
+                });
+            }
+
+            // --- PAGINATION ---
+            // Ganti ->get() menjadi ->paginate(12) agar data diload per 12 baris.
+            $users = $query->paginate(6);
+
             return response()->json($users, 200);
+
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Gagal mengambil data user'], 500);
+            return response()->json(['message' => 'Gagal mengambil data user: ' . $e->getMessage()], 500);
         }
     }
 
-    // 4. Update Data Member / Personnel (Sudah digabung dengan Role)
+    // Update Data Member / Personnel
     public function update(Request $request, $id)
     {
         try {
-            $user = User::findOrFail($id);
+            $user = User::find($id);
 
-            // 1. Tambahkan 'role' ke dalam validasi
+            if (!$user) {
+                return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
+            }
+
             $request->validate([
                 'name'  => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $id,
-                'role'  => 'nullable|string'
+                'role'  => 'nullable|string',
+                'phone' => 'nullable|string|max:20',
+                'hourly_rate' => 'nullable|numeric',
+                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048' // Validasi gambar
             ]);
 
-            // 2. Simpan perubahan ke database, termasuk role
-            $user->update([
+            // Siapkan data yang akan diupdate
+            $dataToUpdate = [
                 'name'       => $request->name,
                 'email'      => $request->email,
                 'position'   => $request->position,
                 'company_id' => $request->company_id ?: null,
-                'role'       => $request->role ?: $user->role, // Update role jika dikirim
-            ]);
+                'role'       => $request->role ?: $user->role,
+                'phone'      => $request->phone,
+                'hourly_rate'=> $request->hourly_rate
+            ];
 
-            // CATAT LOG PERUBAHAN
-            \App\Models\AuditLog::create([
-                'user_id'     => Auth::id(),
-                'user_name'   => Auth::user()->name,
-                'action'      => 'UPDATE_USER',
-                'description' => "Memperbarui data & role personel: {$user->name}",
-                'ip_address'  => $request->ip()
-            ]);
+            // Jika ada upload avatar baru, simpan dan masukkan ke array update
+            if ($request->hasFile('avatar')) {
+                $dataToUpdate['avatar_url'] = $request->file('avatar')->store('avatars', 'public_uploads');
+            }
+
+            $user->update($dataToUpdate);
+
+            // ... sisa kode audit log biarkan seperti aslinya ...
 
             return response()->json(['message' => 'Data personel berhasil diperbarui!'], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['error' => $e->errors()], 422);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal memperbarui data: ' . $e->getMessage()], 500);
         }

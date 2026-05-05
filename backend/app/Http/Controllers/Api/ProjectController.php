@@ -1099,24 +1099,119 @@ public function getTopOutstanding()
 
     public function storeCompany(Request $request)
     {
-        // 1. Validate input
+        try {
+            // 1. Validasi Data yang Masuk
+            // Pastikan format data benar sebelum diproses lebih lanjut
+            $request->validate([
+                'name'        => 'required|string|max:255',
+                'legal_name'  => 'required|string|max:255',
+                'email'       => 'nullable|email',
+                'phone'       => 'nullable|string|max:20',
+                'address'     => 'nullable|string',
+                'description' => 'nullable|string',
+                'logo'        => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048' // Batas file 2MB
+            ]);
+
+            // 2. Penanganan File Logo
+            $logoPath = null;
+            // Jika Vue mengirimkan file gambar dengan nama 'logo'
+            if ($request->hasFile('logo')) {
+                // Simpan ke disk 'public_uploads' di dalam folder 'companies'
+                $logoPath = $request->file('logo')->store('companies', 'public_uploads');
+            }
+
+            // 3. Simpan ke Database
+            // Menggunakan Query Builder DB::table karena menyesuaikan dengan arsitektur tabel Anda
+            DB::table('companies')->insert([
+                'name'        => $request->name,
+                'legal_name'  => $request->legal_name,
+                'email'       => $request->email,
+                'phone'       => $request->phone,
+                'address'     => $request->address,
+                'description' => $request->description,
+                'logo_path'   => $logoPath
+                // Catatan: Kolom created_at dan updated_at tidak disertakan 
+                // untuk mencegah error jika tabel tidak memiliki kolom timestamp tersebut.
+            ]);
+
+            // 4. Berikan Respon Sukses ke Vue
+            return response()->json([
+                'message' => 'Organization berhasil ditambahkan!'
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Tangkap jika ada error pada aturan validasi (misal email salah ketik)
+            return response()->json(['error' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            // Tangkap jika ada error sistem lainnya
+            return response()->json([
+                'error' => 'Gagal menambahkan Organization: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Fungsi baru untuk Update Perusahaan
+    public function updateCompany(Request $request, $id)
+    {
         $request->validate([
-            'name' => 'required|string|max:255'
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string|max:20',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
         ]);
 
         try {
-            // 2. Insert into database (Removed 'updated_at' to match your DB schema)
-            DB::table('companies')->insert([
+            // Siapkan data teks
+            $data = [
                 'name' => $request->name,
                 'legal_name' => $request->legal_name,
-                'created_at' => now()
-            ]);
+                'address' => $request->address,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'description' => $request->description,
+                'updated_at' => now()
+            ];
+
+            // Cek jika user mengunggah logo baru
+            if ($request->hasFile('logo')) {
+                $file = $request->file('logo');
+                $data['logo_path'] = $file->store('companies', 'public_uploads');
+            }
+
+            // Lakukan update berdasarkan ID
+            DB::table('companies')->where('id', $id)->update($data);
             
-            return response()->json(['message' => 'Company created successfully'], 201);
+            return response()->json(['message' => 'Organization berhasil diperbarui!'], 200);
             
         } catch (\Exception $e) {
-            // 3. Catch and return the error if something else fails
-            return response()->json(['error' => 'Gagal menyimpan PT: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Gagal memperbarui PT: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // Fungsi untuk Menghapus Perusahaan (Organization)
+    public function destroyCompany($id)
+    {
+        try {
+            // LANGKAH 1: Lepaskan ikatan (Set Null)
+            // Cari semua user di tabel 'users' yang memiliki 'company_id' sama dengan PT yang akan dihapus.
+            // Ubah 'company_id' mereka menjadi null agar tidak error saat PT dihapus.
+            DB::table('users')->where('company_id', $id)->update(['company_id' => null]);
+            
+            // LANGKAH 2: Eksekusi penghapusan PT
+            // Setelah tidak ada lagi user yang terikat, PT aman untuk dihapus dari tabel 'companies'
+            DB::table('companies')->where('id', $id)->delete();
+            
+            // Berikan respons sukses ke Vue
+            return response()->json(['message' => 'Organization berhasil dihapus dan ikatan personel telah dilepas!'], 200);
+            
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'error' => 'Tidak dapat menghapus PT karena masih terhubung dengan Data Project atau riwayat Kasbon lainnya.'
+            ], 500);
+            
+        } catch (\Exception $e) {
+            // Tangkap error umum lainnya
+            return response()->json(['error' => 'Gagal menghapus PT: ' . $e->getMessage()], 500);
         }
     }
 

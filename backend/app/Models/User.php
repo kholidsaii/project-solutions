@@ -23,7 +23,11 @@ class User extends Authenticatable
     'email',
     'password',
     'role',
-    'company_id', // Tambahkan ini biar role-nya bisa disimpan,!
+    'company_id',
+    'position',
+    'phone',
+    'hourly_rate',
+    'avatar_url', // Tambahkan ini biar role-nya bisa disimpan,!
 ];
 
     /**

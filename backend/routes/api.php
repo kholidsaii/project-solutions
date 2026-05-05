@@ -59,8 +59,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route::post('/projects/{id}/team', [ProjectController::class, 'addTeamMember']);
     // Route::delete('/projects/{projectId}/team/{userId}', [ProjectController::class, 'removeTeamMember']);
     // Route untuk hapus member dari project
-    Route::get('/projects/{id}', [ProjectController::class, 'showProjectCompanies']);
-    Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);
 
     Route::post('/project-productions', [ProjectController::class, 'storeProduction']);
     Route::delete('/project-productions/{id}', [ProjectController::class, 'deleteProduction']);
@@ -91,6 +89,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/companies', [ProjectController::class, 'getCompanies']);
     Route::post('/companies', [ProjectController::class, 'storeCompany']);
     Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
+    Route::delete('/companies/{id}', [ProjectController::class, 'destroyCompany']);
+    // Menguhubungkan Project dengan Companies
+    Route::get('/projects/{id}', [ProjectController::class, 'showProjectCompanies']);
+    Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);
 
     // --- 3. FINANCE & ACCOUNTING ---
     Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);

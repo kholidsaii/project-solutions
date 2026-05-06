@@ -42,22 +42,37 @@ class ProjectController extends Controller
     public function index(Request $request)
     {
         try {
+            // Membangun query utama dengan Join ke tabel Kategori 
+            // serta menghitung jumlah personel (Teamwork) melalui tabel many-to-many project_companies
             $query = DB::table('projects')
                 ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
                 ->select(
                     'projects.*', 
                     'work_categories.name as category_name',
                     'work_categories.image_path as category_logo',
-                    DB::raw("(finish_date - start_date) as total_day_diff") 
+                    DB::raw("(projects.finish_date - projects.start_date) as total_day_diff"), 
+                    // SUBQUERY: Menghitung total personel dari PT yang di-assign ke project ini
+                    DB::raw("(
+                        SELECT COUNT(DISTINCT users.id) 
+                        FROM users 
+                        JOIN project_companies ON users.company_id = project_companies.company_id 
+                        WHERE project_companies.project_id = projects.id
+                    ) as team_count")
                 );
 
-            // Fitur Drill-down: Filter berdasarkan Perusahaan jika ada parameter company_id
+            // Fitur Drill-down: Filter berdasarkan Perusahaan menggunakan relasi baru (project_companies)
             if ($request->has('company_id')) {
-                $query->where('projects.company_id', $request->company_id);
+                $query->whereExists(function ($q) use ($request) {
+                    $q->select(DB::raw(1))
+                      ->from('project_companies')
+                      ->whereColumn('project_companies.project_id', 'projects.id')
+                      ->where('project_companies.company_id', $request->company_id);
+                });
             }
 
             $projects = $query->orderBy('projects.created_at', 'desc')->get();
 
+            // Memformat data agar rapi saat diterima oleh Vue
             $formatted = $projects->map(function($p) {
                 return [
                     'id' => $p->id,
@@ -65,15 +80,18 @@ class ProjectController extends Controller
                     'client_name' => $p->client_name ?? '-',
                     'start_date' => $p->start_date ? Carbon::parse($p->start_date)->format('d F Y') : '-',
                     'finish_date' => $p->finish_date ? Carbon::parse($p->finish_date)->format('d F Y') : '-',
-                    'total_day' => ($p->total_day_diff ?? 0) . ' Day',
+                    'total_day_diff' => $p->total_day_diff ?? 0, // Untuk tampilan di Vue
                     'category' => $p->category_name,
-                    'logo' => $p->category_logo ? 'uploads/' . $p->category_logo : null,
+                    'logo' => $p->logo ? $p->logo : $p->category_logo,
                     'status' => $p->status,
                     'priority' => $p->priority,
                     'package' => $p->package ?? '-',
                     'progress' => $p->progress_percent,
                     'contract_value' => (float)$p->contract_value,
-                    'company_id' => $p->company_id,
+                    
+                    // Variabel Team Count yang sudah dihitung oleh Subquery Database
+                    'team_count' => (int) $p->team_count, 
+                    
                     'color' => $p->status == 'Finish' ? 'bg-emerald-500' : 'bg-blue-600'
                 ];
             });
@@ -96,6 +114,10 @@ class ProjectController extends Controller
         ]);
 
         try {
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('projects', 'public_uploads');
+            }
             $id = DB::table('projects')->insertGetId([
                 'category_id' => $request->category_id,
                 'company_id' => $request->company_id,
@@ -104,6 +126,7 @@ class ProjectController extends Controller
                 'contract_value' => $request->contract_value,
                 'deadline' => $request->deadline,
                 'description' => $request->description,
+                'logo' => $logoPath,
                 'progress_percent' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -143,14 +166,14 @@ class ProjectController extends Controller
     public function show($id)
     {
         // 1. Ambil Data Utama Project, Kategori, dan Nama PT Afiliasi
-        $project = DB::table('projects')
+       $project = DB::table('projects')
             ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            ->leftJoin('companies', 'projects.company_id', '=', 'companies.id') // RELASI KE PT
+            ->leftJoin('companies', 'projects.company_id', '=', 'companies.id')
             ->select(
                 'projects.*', 
                 'work_categories.name as category_name', 
-                'work_categories.image_path as logo',
-                'companies.name as affiliated_pt_name' // Tampilkan nama PT
+                'work_categories.image_path as category_logo', // <--- Ubah aliasnya menjadi category_logo
+                'companies.name as affiliated_pt_name'
             )
             ->where('projects.id', $id)
             ->first();
@@ -522,7 +545,10 @@ class ProjectController extends Controller
                 'company_id'      => $request->company_id,
                 'updated_at'      => now()
             ];
-
+            if ($request->hasFile('logo')) {
+                $file = $request->file('logo');
+                $data['logo'] = $file->store('projects', 'public_uploads');
+            }
             // 3. Bersihkan data null agar tidak menimpa data yang sudah ada dengan null secara tidak sengaja
             $data = array_filter($data, fn($value) => !is_null($value));
 

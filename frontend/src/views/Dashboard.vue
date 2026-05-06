@@ -3,10 +3,14 @@ import { ref, onMounted } from 'vue';
 import api from '../api/axios'; 
 
 const notifications = ref<any[]>([]);
-const unreadCount = ref(12); // Angka dummy agar persis Figma
+const unreadCount = ref(12);
 const showNotifications = ref(false);
 
-// Penambahan shadow berwarna (Glow effect) agar persis Figma
+// State untuk Logo Perusahaan Dinamis
+const companyName = ref('KERJAPRO.COM');
+const companyDesc = ref('Project Management Solutions');
+const companyLogo = ref('/logo-kerjapro1.png');
+
 const menus = [
   { name: 'Project', icon: 'fas fa-shield-alt', color: 'bg-[#FF3B30]', shadow: 'shadow-[0_10px_20px_rgba(255,59,48,0.3)]', path: '/projects' },
   { name: 'Financial', icon: 'fas fa-wallet', color: 'bg-[#2962FF]', shadow: 'shadow-[0_10px_20px_rgba(41,98,255,0.3)]', path: '/financial' },
@@ -20,10 +24,38 @@ const toggleNotifications = () => { showNotifications.value = !showNotifications
 
 const fetchDashboardData = async () => {
   try {
+    // 1. Fetch Notifikasi
     const notifRes = await api.get('/notifications'); 
     notifications.value = notifRes.data; 
     if(notifRes.data.length > 0) unreadCount.value = notifRes.data.length;
-  } catch (error) { console.error(error); }
+
+    // 2. Fetch Data PT (Company) untuk Logo Dinamis
+    const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (localUser.email) {
+      const usersRes = await api.get('/users', { params: { tag_search: localUser.name } });
+      const users = usersRes.data.data || usersRes.data;
+      const myProfile = users.find((u: any) => u.email === localUser.email);
+
+      // Jika user terikat dengan sebuah PT (Company_id tidak null)
+      if (myProfile && myProfile.company_id) {
+         const compRes = await api.get('/companies');
+         const companies = compRes.data.data || compRes.data;
+         const myCompany = companies.find((c: any) => c.id === myProfile.company_id);
+         
+         if (myCompany) {
+            companyName.value = myCompany.name;
+            companyDesc.value = myCompany.description || myCompany.legal_name || 'Organization';
+            
+            if (myCompany.logo_path) {
+               const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace('/api', '');
+               companyLogo.value = `${baseUrl}/uploads/${myCompany.logo_path}`;
+            }
+         }
+      }
+    }
+  } catch (error) { 
+    console.error(error); 
+  }
 };
 
 onMounted(() => { fetchDashboardData(); });
@@ -32,7 +64,6 @@ onMounted(() => { fetchDashboardData(); });
 <template>
   <div class="min-h-screen bg-[#F4F6F9] flex flex-col justify-center items-center py-8 px-4 pl-[80px] md:pl-[100px] font-sans overflow-x-hidden">
     
-    <!-- ZOOM OUT: Mengurangi max-w dari 700px menjadi 540px agar lebih proporsional -->
     <div class="w-full max-w-[540px] flex flex-col items-center">
       
       <!-- TOP WIDGET CARD -->
@@ -40,19 +71,18 @@ onMounted(() => { fetchDashboardData(); });
         
         <!-- Baris Atas: Logo & Cuaca -->
         <div class="flex justify-between items-center border-b border-slate-200 pb-3">
-          <!-- Logo Kerjapro -->
-          <div class="flex items-center gap-2">
-            <div class="w-10 h-10 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center p-1.5">
-              <img src="/logo-kerjapro1.png" alt="Logo" class="w-full h-full object-contain" onerror="this.style.display='none'">
-              <i class="fas fa-cube text-xl text-orange-500" v-if="false"></i>
+          <!-- Logo Company (Sekarang Dinamis) -->
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center p-1.5 overflow-hidden">
+              <img :src="companyLogo" alt="Logo" class="w-full h-full object-contain" onerror="this.src='/logo-kerjapro1.png'">
             </div>
-            <div>
-              <h1 class="text-base font-black text-[#2962FF] tracking-tighter leading-none">KERJAPRO.COM</h1>
-              <p class="text-[8px] text-slate-400 mt-0.5 font-bold uppercase tracking-wider">Project Management Solutions</p>
+            <div class="max-w-[180px]">
+              <h1 class="text-base font-black text-[#2962FF] tracking-tighter leading-none uppercase truncate">{{ companyName }}</h1>
+              <p class="text-[8px] text-slate-400 mt-1 font-bold uppercase tracking-wider truncate">{{ companyDesc }}</p>
             </div>
           </div>
 
-          <!-- Cuaca (Mirip Figma) -->
+          <!-- Cuaca -->
           <div class="text-right flex items-center gap-2">
              <i class="fas fa-cloud text-3xl text-slate-300"></i>
              <div class="text-left">
@@ -66,16 +96,37 @@ onMounted(() => { fetchDashboardData(); });
         <!-- Baris Bawah: Ikon Aksi & Search Bar -->
         <div class="flex items-center justify-between gap-4">
           
-          <!-- Ikon Kiri (Pill Box putih seperti Figma) -->
-          <div class="flex items-center gap-4 bg-white shadow-sm border border-slate-100 rounded-lg px-4 py-1.5 text-[#2962FF] text-sm">
+          <!-- Ikon Kiri (Pill Box putih) -->
+          <div class="flex items-center gap-4 bg-white shadow-sm border border-slate-100 rounded-lg px-4 py-1.5 text-[#2962FF] text-sm relative">
             <button class="hover:text-blue-800 transition-colors"><i class="fas fa-th"></i></button>
             <button class="hover:text-blue-800 transition-colors"><i class="fas fa-cog"></i></button>
-            <button @click="toggleNotifications" class="hover:text-blue-800 transition-colors relative">
-              <i class="far fa-bell"></i>
-              <span v-if="unreadCount > 0" class="absolute -top-1.5 -right-2 bg-red-500 text-white text-[7px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-white">
-                {{ unreadCount }}
-              </span>
-            </button>
+            
+            <!-- Wrapper Lonceng Notifikasi & Popupnya -->
+            <div class="relative flex items-center">
+              <button @click="toggleNotifications" class="hover:text-blue-800 transition-colors relative z-50">
+                <i class="far fa-bell"></i>
+                <span v-if="unreadCount > 0" class="absolute -top-1.5 -right-2 bg-red-500 text-white text-[7px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-white">
+                  {{ unreadCount }}
+                </span>
+              </button>
+
+              <!-- OVERLAY BACKGROUND UNTUK KLIK LUAR (Hanya aktif saat notif terbuka) -->
+              <div v-if="showNotifications" @click="showNotifications = false" class="fixed inset-0 z-40 cursor-default"></div>
+
+              <!-- Popup Notifikasi -->
+              <div v-if="showNotifications" class="absolute top-8 -left-24 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50">
+                 <div class="p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+                   <h4 class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Notifications</h4>
+                 </div>
+                 <div class="p-3 text-center text-xs text-slate-500 max-h-48 overflow-y-auto">
+                   <p v-if="notifications.length === 0">No recent activity.</p>
+                   <div v-else v-for="notif in notifications" :key="notif.id" class="text-left border-b border-slate-50 py-2 last:border-0">
+                     <p class="font-bold text-[#2962FF] text-[10px]">{{ notif.title }}</p>
+                     <p class="text-[9px] mt-0.5">{{ notif.message }}</p>
+                   </div>
+                 </div>
+              </div>
+            </div>
           </div>
 
           <!-- Search Bar Kanan -->
@@ -84,21 +135,6 @@ onMounted(() => { fetchDashboardData(); });
             <input type="text" class="w-full bg-white shadow-sm border border-slate-100 rounded-lg py-1.5 pl-8 pr-3 outline-none text-xs font-medium text-slate-600 focus:ring-1 focus:ring-[#2962FF]/20" placeholder="Search...">
           </div>
         </div>
-        
-        <!-- Notifikasi Popup diletakkan diluar flex box agar posisinya absolut dengan baik -->
-        <div v-if="showNotifications" class="absolute top-[90px] left-4 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-[100]">
-           <div class="p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl">
-             <h4 class="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Notifications</h4>
-           </div>
-           <div class="p-3 text-center text-xs text-slate-500 max-h-48 overflow-y-auto">
-             <p v-if="notifications.length === 0">No recent activity.</p>
-             <div v-else v-for="notif in notifications" :key="notif.id" class="text-left border-b border-slate-50 py-2 last:border-0">
-               <p class="font-bold text-[#2962FF] text-[10px]">{{ notif.title }}</p>
-               <p class="text-[9px] mt-0.5">{{ notif.message }}</p>
-             </div>
-           </div>
-        </div>
-
       </div>
 
       <!-- MAIN MENU GRID -->

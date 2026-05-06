@@ -117,6 +117,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ---> TAMBAHKAN 2 BARIS INI <---
     Route::get('/finance/transactions', [ProjectController::class, 'getTransactions']);
     Route::post('/finance/transactions', [ProjectController::class, 'storeTransaction']);
+    Route::put('/finance/transactions/{id}', [ProjectController::class, 'updateTransaction']); // <--- TAMBAHKAN INI
+    Route::delete('/finance/transactions/{id}', [ProjectController::class, 'destroyTransaction']); // <--- TAMBAHKAN INI
     // -------------------------------
     Route::put('/accounting/coas/{id}', [ProjectController::class, 'updateCOA']);
     Route::delete('/accounting/coas/{id}', [ProjectController::class, 'deleteCOA']);

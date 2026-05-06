@@ -9,8 +9,8 @@ const formatCurrency = (val: number) => new Intl.NumberFormat('id-ID', { style: 
 // ==========================================
 const activeNav = ref('all');
 const selectedProject = ref('all');
-const currentPage = ref(1);
-const totalPages = ref(1);
+// const currentPage = ref(1);
+// const totalPages = ref(1);
 const transactions = ref<any[]>([]);
 
 const dbProjects = ref<any[]>([]);

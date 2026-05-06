@@ -1115,6 +1115,7 @@ class ProjectController extends Controller
 
   public function updateTransaction(Request $request, $id)
 {
+    // 1. Validasi harus menyertakan attachment
     $request->validate([
         'type' => 'required|in:inflow,outflow',
         'date' => 'required|date',
@@ -1140,14 +1141,14 @@ class ProjectController extends Controller
             'updated_at' => now()
         ];
 
-        // Jika user mengunggah file baru saat edit
+        // 2. LOGIKA KRUSIAL: Jika ada file, simpan dan masukkan ke array $data
         if ($request->hasFile('attachment')) {
+            // Gunakan store untuk mendapatkan path string yang benar
             $data['attachment_path'] = $request->file('attachment')->store('finance_attachments', 'public_uploads');
         }
-        // JANGAN menambahkan else { $data['attachment_path'] = null } agar file lama tidak hilang
 
+        // 3. Pastikan kolom tidak terupdate menjadi '0' jika tidak ada upload baru
         DB::table('finance_transactions')->where('id', $id)->update($data);
-        $this->createLog('UPDATE_TRANSACTION', "Update TRX ID: $id", $request);
         
         return response()->json(['message' => 'Update Sukses!']);
     } catch (\Exception $e) {

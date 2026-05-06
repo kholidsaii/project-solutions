@@ -10,37 +10,39 @@ const logout = () => {
 </script>
 
 <template>
-  <nav class="fixed left-2 md:left-4 top-10 w-[60px] md:w-[70px] bg-white rounded-[2.5rem] shadow-xl py-6 flex flex-col items-center z-[200] border border-slate-50 transition-all">
+  <nav class="fixed left-4 top-1/2 -translate-y-1/2 w-[65px] bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] py-6 flex flex-col items-center z-[200] border border-slate-100 transition-all">
     
+    <!-- Account -->
+    <div class="flex flex-col items-center mb-6 cursor-pointer group" @click="logout" title="Logout">
+       <div class="w-10 h-10 rounded-full overflow-hidden shadow-sm border-2 border-slate-100 group-hover:border-red-400 transition-colors">
+         <img src="https://ui-avatars.com/api/?name=Kholid+Saifullah&background=444&color=fff" alt="Account" class="w-full h-full object-cover">
+       </div>
+       <span class="text-[9px] font-bold text-slate-700 mt-1.5">Account</span>
+       <div class="w-6 h-[1px] bg-slate-100 mt-4"></div> <!-- Garis Pembatas -->
+    </div>
+
+    <!-- Menus (Menggunakan Image asli seperti Figma) -->
     <router-link to="/" class="sidebar-item group" active-class="active">
-      <span class="label text-[7px] md:text-[9px]">Home</span>
-      <div class="icon-box w-9 h-9 md:w-11 md:h-11">
-        <img src="/logo-sidebar-1.png" alt="Home" class="w-full h-full object-contain p-2" />
+      <div class="icon-box">
+        <img src="/logo-sidebar-1.png" alt="Home" class="w-full h-full object-contain p-1.5" onerror="this.style.display='none'" />
       </div>
+      <span class="label">Home</span>
     </router-link>
 
     <router-link to="/activity" class="sidebar-item group" active-class="active">
-      <span class="label text-[7px] md:text-[9px]">Aktivity</span>
-      <div class="icon-box w-9 h-9 md:w-11 md:h-11">
-         <img src="/logo-sidebar-2.png" alt="Activity" class="w-full h-full object-contain p-2" />
+      <div class="icon-box">
+         <img src="/logo-sidebar-2.png" alt="Activity" class="w-full h-full object-contain p-1.5" onerror="this.style.display='none'" />
       </div>
+      <span class="label">Aktivity</span>
     </router-link>
 
-    <router-link to="/analysis" class="sidebar-item group mb-4" active-class="active">
-      <span class="label text-[7px] md:text-[9px]">Analysis</span>
-      <div class="icon-box w-9 h-9 md:w-11 md:h-11">
-         <img src="/logo-sidebar-3.png" alt="Analysis" class="w-full h-full object-contain p-2" />
+    <router-link to="/reports" class="sidebar-item group mb-2" active-class="active">
+      <div class="icon-box">
+         <img src="/logo report.jpg" alt="Report" class="w-full h-full object-contain p-1.5" onerror="this.style.display='none'" />
       </div>
+      <span class="label">Report</span>
     </router-link>
 
-    <div class="flex flex-col items-center gap-4 mt-auto">
-       <div class="w-9 h-9 md:w-11 md:h-11 rounded-full overflow-hidden shadow-sm border border-slate-100">
-         <img src="https://ui-avatars.com/api/?name=Kholid+Saifullah&background=444&color=fff" alt="User" class="w-full h-full object-cover">
-       </div>
-       <button @click="logout" class="text-slate-200 hover:text-red-500 transition-all">
-         <i class="fas fa-power-off text-base md:text-lg"></i>
-       </button>
-    </div>
   </nav>
 </template>
 
@@ -48,16 +50,15 @@ const logout = () => {
 @reference "../style.css";
 
 .sidebar-item {
-  @apply flex flex-col items-center w-full mb-4 cursor-pointer transition-all;
+  @apply flex flex-col items-center w-full mb-5 cursor-pointer transition-all;
 }
 
 .label {
-  @apply text-[9px] font-bold text-slate-400 mb-1 uppercase tracking-tighter;
+  @apply text-[9px] font-bold text-slate-500 mt-1.5 tracking-tight;
 }
 
 .icon-box {
-  /* Box icon sekarang punya ukuran tetap agar gambar di dalamnya bisa di tengah */
-  @apply w-11 h-11 flex items-center justify-center rounded-2xl transition-all duration-300 shadow-sm overflow-hidden;
+  @apply w-10 h-10 flex items-center justify-center rounded-[0.8rem] transition-all duration-300;
 }
 
 /* State Active */
@@ -66,13 +67,11 @@ const logout = () => {
 }
 
 .active .icon-box {
-  @apply shadow-lg scale-110 ring-2 ring-white;
+  @apply shadow-md scale-110 bg-slate-50;
 }
 
 /* State Hover */
 .sidebar-item:hover .icon-box {
-  @apply brightness-110 shadow-md -translate-y-0.5;
+  @apply -translate-y-1 shadow-sm;
 }
-
-/* HAPUS BAGIAN FILTER INVERT AGAR GAMBAR TIDAK JADI PUTIH */
 </style>

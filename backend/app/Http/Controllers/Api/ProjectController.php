@@ -1080,7 +1080,7 @@ class ProjectController extends Controller
 
         try {
             $filePath = null;
-            // Proses simpan file fisik ke folder storage/app/public/finance_attachments
+            // PENTING: Gunakan public_uploads agar tersimpan di /public/uploads/finance_attachments
             if ($request->hasFile('attachment')) {
                 $filePath = $request->file('attachment')->store('finance_attachments', 'public_uploads');
             }
@@ -1093,14 +1093,14 @@ class ProjectController extends Controller
                 'ref_number' => $request->ref_number,
                 'type' => $request->type,
                 'project_id' => $request->project_id ?: null,
-                'company_id' => $request->company_id ?: null, // Simpan relasi PT
+                'company_id' => $request->company_id ?: null,
                 'coa_id' => $request->coa_id,
                 'method' => $request->method,
                 'bank_from' => $request->bank_from,
                 'bank_to' => $request->bank_to,
                 'amount' => $request->amount,
                 'description' => $request->description,
-                'attachment_path' => $filePath, // Nama file tersimpan di sini
+                'attachment_path' => $filePath, // Nilai ini akan berisi path seperti "finance_attachments/xyz.pdf"
                 'status' => 'Pending',
                 'created_by' => Auth::id(),
                 'created_at' => now(),
@@ -1111,8 +1111,7 @@ class ProjectController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal simpan: ' . $e->getMessage()], 500);
         }
-    }   
-    // Tambahkan fungsi ini di dalam class ProjectController
+    }
 
     public function updateTransaction(Request $request, $id)
     {
@@ -1140,10 +1139,13 @@ class ProjectController extends Controller
                 'updated_at' => now()
             ];
 
-            // Penanganan upload file baru jika ada
+            // Jika ada file baru yang diunggah
             if ($request->hasFile('attachment')) {
+                // (Opsional) Anda bisa menambahkan logika hapus file lama di sini
                 $data['attachment_path'] = $request->file('attachment')->store('finance_attachments', 'public_uploads');
             }
+            // Jika tidak ada file baru, kita tidak memasukkan 'attachment_path' ke array $data
+            // agar database tetap menyimpan path file yang lama.
 
             DB::table('finance_transactions')->where('id', $id)->update($data);
             

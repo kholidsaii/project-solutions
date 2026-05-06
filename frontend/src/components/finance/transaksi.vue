@@ -163,11 +163,10 @@ const openEditModal = (trx: any) => {
   };
   showAddModal.value = true;
 };
-const getFileUrl = (path: string) => {
-  if (!path) return '';
-  
-  // Mengambil Base URL dari environment variable Vite, 
-  // jika tidak ada maka fallback ke domain saat ini (untuk server)
+const getFileUrl = (path: string | null | number | undefined) => {
+  // Pastikan path valid dan bukan string "0" atau angka 0
+  if (!path || path === "0" || path === 0) return ''; // Kembalikan string kosong, bukan null
+
   const baseUrl = import.meta.env.VITE_API_URL 
     ? import.meta.env.VITE_API_URL.replace('/api', '') 
     : window.location.origin;
@@ -234,7 +233,6 @@ onMounted(() => { fetchMaster(); fetchTransactions(); });
                 <td class="p-6 text-center"><span class="px-3 py-1 rounded-lg text-[8px] font-black uppercase border" :class="trx.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'">{{ trx.status }}</span></td>
                 <td class="p-6 text-right">
                     <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <!-- Button Edit & Delete tetap sama -->
                         <button @click="openEditModal(trx)" class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white">
                             <i class="fas fa-edit text-xs"></i>
                         </button>
@@ -242,15 +240,16 @@ onMounted(() => { fetchMaster(); fetchTransactions(); });
                             <i class="fas fa-trash text-xs"></i>
                         </button>
 
-                        <!-- PERBAIKAN DI SINI: Menggunakan getFileUrl -->
-                        <a v-if="trx.attachment_path" 
-                        :href="getFileUrl(trx.attachment_path)" 
-                        target="_blank"
-                        class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all inline-flex items-center justify-center"
-                        title="Lihat Bukti Transaksi">
-                            <i class="fas fa-paperclip"></i>
-                        </a>
-                        <span v-else class="text-slate-300 opacity-50 flex items-center justify-center w-8 h-8">
+                        <!-- PENGECEKAN KETAT: file hanya muncul jika path bukan "0" -->
+                        <template v-if="trx.attachment_path && trx.attachment_path !== '0'">
+                            <a :href="getFileUrl(trx.attachment_path)" 
+                            target="_blank"
+                            class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all inline-flex items-center justify-center"
+                            title="Lihat Bukti">
+                                <i class="fas fa-paperclip"></i>
+                            </a>
+                        </template>
+                        <span v-else class="text-slate-300 opacity-30 flex items-center justify-center w-8 h-8">
                             <i class="fas fa-times-circle"></i>
                         </span>
                     </div>

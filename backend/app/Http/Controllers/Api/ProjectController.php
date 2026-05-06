@@ -1113,49 +1113,47 @@ class ProjectController extends Controller
         }
     }
 
-    public function updateTransaction(Request $request, $id)
-    {
-        $request->validate([
-            'type' => 'required|in:inflow,outflow',
-            'date' => 'required|date',
-            'amount' => 'required|numeric',
-            'coa_id' => 'required',
-            'method' => 'required',
-        ]);
+  public function updateTransaction(Request $request, $id)
+{
+    $request->validate([
+        'type' => 'required|in:inflow,outflow',
+        'date' => 'required|date',
+        'amount' => 'required|numeric',
+        'coa_id' => 'required',
+        'method' => 'required',
+        'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120'
+    ]);
 
-        try {
-            $data = [
-                'transaction_date' => $request->date,
-                'ref_number' => $request->ref_number,
-                'type' => $request->type,
-                'project_id' => $request->project_id ?: null,
-                'company_id' => $request->company_id ?: null,
-                'coa_id' => $request->coa_id,
-                'method' => $request->method,
-                'bank_from' => $request->bank_from,
-                'bank_to' => $request->bank_to,
-                'amount' => $request->amount,
-                'description' => $request->description,
-                'updated_at' => now()
-            ];
+    try {
+        $data = [
+            'transaction_date' => $request->date,
+            'ref_number' => $request->ref_number,
+            'type' => $request->type,
+            'project_id' => $request->project_id ?: null,
+            'company_id' => $request->company_id ?: null,
+            'coa_id' => $request->coa_id,
+            'method' => $request->method,
+            'bank_from' => $request->bank_from,
+            'bank_to' => $request->bank_to,
+            'amount' => $request->amount,
+            'description' => $request->description,
+            'updated_at' => now()
+        ];
 
-            // Jika ada file baru yang diunggah
-            if ($request->hasFile('attachment')) {
-                // (Opsional) Anda bisa menambahkan logika hapus file lama di sini
-                $data['attachment_path'] = $request->file('attachment')->store('finance_attachments', 'public_uploads');
-            }
-            // Jika tidak ada file baru, kita tidak memasukkan 'attachment_path' ke array $data
-            // agar database tetap menyimpan path file yang lama.
-
-            DB::table('finance_transactions')->where('id', $id)->update($data);
-            
-            $this->createLog('UPDATE_TRANSACTION', "Memperbarui transaksi ID: {$id}", $request);
-            
-            return response()->json(['message' => 'Transaksi berhasil diperbarui!']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Gagal update: ' . $e->getMessage()], 500);
+        // Jika user mengunggah file baru saat edit
+        if ($request->hasFile('attachment')) {
+            $data['attachment_path'] = $request->file('attachment')->store('finance_attachments', 'public_uploads');
         }
+        // JANGAN menambahkan else { $data['attachment_path'] = null } agar file lama tidak hilang
+
+        DB::table('finance_transactions')->where('id', $id)->update($data);
+        $this->createLog('UPDATE_TRANSACTION', "Update TRX ID: $id", $request);
+        
+        return response()->json(['message' => 'Update Sukses!']);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function destroyTransaction($id)
     {
@@ -1165,7 +1163,7 @@ class ProjectController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Gagal menghapus data'], 500);
         }
-    }
+    }   
     public function getBanks(Request $request)
     {
         $query = DB::table('finance_banks');

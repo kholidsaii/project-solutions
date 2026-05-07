@@ -28,6 +28,7 @@ class ProjectController extends Controller
     {
         return match($type) {
             'categories' => 'work_categories',
+            'locations'  => 'work_locations', // <--- TAMBAHKAN BARIS INI
             'status'     => 'work_statuses',
             'priority'   => 'work_priorities',
             'package'    => 'work_packages',
@@ -40,7 +41,7 @@ class ProjectController extends Controller
             'tags_docs'  => 'master_tags_docs',
             default      => null
         };
-    }   
+    }
 
     public function index(Request $request)
     {
@@ -167,18 +168,13 @@ class ProjectController extends Controller
 
     public function show($id)
     {
+        // 1. AMBIL DATA PROJECT UTAMA
         $project = DB::table('projects')
             ->leftJoin('work_categories', 'projects.category_id', '=', 'work_categories.id')
-            // Join pertama ke project_companies untuk mendapatkan PT utama
-            ->leftJoin('project_companies', function($join) {
-                $join->on('projects.id', '=', 'project_companies.project_id');
-            })
-            ->leftJoin('companies', 'project_companies.company_id', '=', 'companies.id')
             ->select(
                 'projects.*', 
                 'work_categories.name as category_name', 
-                'work_categories.image_path as category_logo',
-                'companies.name as affiliated_pt_name'
+                'work_categories.image_path as category_logo'
             )
             ->where('projects.id', $id)
             ->first();
@@ -187,8 +183,9 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Project tidak ditemukan'], 404);
         }
 
+        // 2. PERHITUNGAN FINANCIAL
         $totalPurchasing = DB::table('project_purchasings')->where('project_id', $id)->sum('total_price');
-        $totalWorkOrder = DB::table('work_orders')->where('project_id', $id)->sum('budget');
+        $totalWorkOrder = 0; 
         
         $project->financials = [
             'total_expense' => (float)($totalPurchasing + $totalWorkOrder),
@@ -197,13 +194,14 @@ class ProjectController extends Controller
             'remaining_budget' => (float)($project->contract_value - ($totalPurchasing + $totalWorkOrder))
         ];
 
-        // Many to Many relations untuk Project ini
+        // 3. DATA PERUSAHAAN (MANY TO MANY)
         $project->companies = DB::table('project_companies')
             ->join('companies', 'project_companies.company_id', '=', 'companies.id')
             ->where('project_companies.project_id', $id)
             ->select('companies.id', 'companies.name')
             ->get();
 
+        // 4. DATA TIM & TASKS COUNT
         $project->team = DB::table('project_teams')
             ->join('users', 'project_teams.user_id', '=', 'users.id')
             ->where('project_teams.project_id', $id)
@@ -217,9 +215,43 @@ class ProjectController extends Controller
                 ->count();
         }
 
-        $project->tasks = DB::table('project_tasks')->where('project_id', $id)->orderBy('id', 'asc')->get();
-        $project->days_left = $project->deadline ? Carbon::parse($project->deadline)->diffInDays(now(), false) : null;
+        // 5. AMBIL TASKS DENGAN JOIN KE DOCUMENTS DAN SUBQUERY UNTUK LIKE/COMMENT
+        $project->tasks = DB::table('project_tasks as pt')
+            ->leftJoin('activity_documents as ad', 'pt.id', '=', 'ad.activity_id')
+            ->select(
+                'pt.*',
+                'ad.file_path as document', // Ambil path file agar gambar/video muncul
+                DB::raw("(SELECT COUNT(*) FROM likes WHERE likeable_id = pt.id AND likeable_type = 'App\\\\Models\\\\ProjectTask') as likes_count"),
+                DB::raw("(SELECT COUNT(*) FROM comments WHERE commentable_id = pt.id AND commentable_type = 'App\\\\Models\\\\ProjectTask') as comments_count")
+            )
+            ->where('pt.project_id', $id)
+            ->orderBy('pt.created_at', 'desc')
+            ->get();
+
+        // 6. AMBIL KOMENTAR & STATUS LIKE PERSONAL UNTUK SETIAP TASK
+        foreach ($project->tasks as $task) {
+            // Ambil detail komentar beserta user pembuatnya
+            $task->comments = DB::table('comments')
+                ->join('users', 'comments.user_id', '=', 'users.id')
+                ->select('comments.*', 'users.name', 'users.avatar_url as avatar')
+                ->where('commentable_id', $task->id)
+                ->where('commentable_type', 'App\Models\ProjectTask')
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            // Cek apakah user login sudah me-like task ini
+            $task->is_liked_by_me = DB::table('likes')
+                ->where('likeable_id', $task->id)
+                ->where('likeable_type', 'App\Models\ProjectTask')
+                ->where('user_id', Auth::id())
+                ->exists();
+        }
+
+        // 7. SISA DATA RELASI LAINNYA
+        $project->days_left = $project->deadline ? \Carbon\Carbon::parse($project->deadline)->diffInDays(now(), false) : null;
+        
         $project->work_orders = DB::table('work_orders')->where('project_id', $id)->orderBy('id', 'desc')->get();
+        
         $project->purchasings = DB::table('project_purchasings')
             ->leftJoin('users', 'project_purchasings.user_id', '=', 'users.id')
             ->where('project_purchasings.project_id', $id)
@@ -240,6 +272,7 @@ class ProjectController extends Controller
             ->get();
 
         $project->marketings = DB::table('project_marketings')->where('project_id', $id)->get();
+        
         $project->supports = DB::table('project_supports')
             ->leftJoin('users as reporters', 'project_supports.user_id', '=', 'reporters.id')
             ->leftJoin('users as assigned', 'project_supports.assigned_to', '=', 'assigned.id')
@@ -268,18 +301,52 @@ class ProjectController extends Controller
 
     public function storeTask(Request $request)
     {
-        $request->validate(['project_id' => 'required', 'task_name' => 'required']);
-        DB::table('project_tasks')->insert([
-            'project_id' => $request->project_id,
-            'task_name' => $request->task_name,
-            'task_category' => $request->task_category ?? 'GENERAL',
-            'priority' => $request->priority ?? 'Medium',
-            'is_completed' => false,
-            'created_at' => now()
+        $request->validate([
+            'project_id' => 'required',
+            'task_name' => 'required',
+            'work_order_id' => 'nullable|exists:work_orders,id',
+            'location_id' => 'nullable|exists:work_locations,id',
+            'document' => 'nullable|file|max:20480', 
         ]);
-        $this->updateProjectProgress($request->project_id);
-        $this->createLog('ADD_TASK', "Menambah task '{$request->task_name}' ke project ID: {$request->project_id}", $request);
-        return response()->json(['message' => 'Task Created']);
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Simpan Task/Activity (Tanpa Category & Priority)
+            $taskId = DB::table('project_tasks')->insertGetId([
+                'project_id'    => $request->project_id,
+                'work_order_id' => $request->work_order_id,
+                'location_id'   => $request->location_id,
+                'task_name'     => $request->task_name,
+                'description'   => $request->description,
+                'is_completed'  => false,
+                'created_at'    => now()
+            ]);
+
+            // 2. Simpan Dokumen jika ada
+            if ($request->hasFile('document')) {
+                $file = $request->file('document');
+                $path = $file->store('activity_docs', 'public_uploads');
+
+                DB::table('activity_documents')->insert([
+                    'activity_id' => $taskId,
+                    'user_id'     => Auth::id(),
+                    'title'       => 'Attachment: ' . $request->task_name,
+                    'file_path'   => $path,
+                    'file_type'   => $file->getClientOriginalExtension(),
+                    'file_size'   => $file->getSize(),
+                    'created_at'  => now()
+                ]);
+            }
+
+            $this->updateProjectProgress($request->project_id);
+            DB::commit();
+
+            return response()->json(['message' => 'Activity & Document Saved!'], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function toggleTask($id)
@@ -414,6 +481,12 @@ class ProjectController extends Controller
                 }
             }
 
+            // --- TAMBAHAN UNTUK LOCATION ---
+            if ($type === 'locations') {
+                $data['address'] = $request->address;
+                $data['maps'] = $request->maps;
+            }
+
             DB::table($table)->insert($data);
             return response()->json(['message' => 'Berhasil disimpan']);
         } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
@@ -425,24 +498,17 @@ class ProjectController extends Controller
         if (!$table) return response()->json(['message' => 'Tipe tidak valid'], 400);
 
         try {
-            if ($type === 'categories') {
-                $data = [
-                    'project_title' => $request->name,
-                    'client_name'   => $request->client_name,
-                    'start_date'    => $request->start_date,
-                    'finish_date'   => $request->finish_date,
-                    'package'       => $request->package,
-                    'updated_at'    => now()
-                ];
-                $data = array_filter($data, fn($value) => !is_null($value));
-                if ($request->hasFile('image')) {
-                    $data['logo'] = $request->file('image')->store('categories', 'public_uploads'); 
-                }
-                DB::table('projects')->where('id', $id)->update($data);
-                return response()->json(['message' => 'Detail Project berhasil diupdate!']);
+            // ... (KODE CATEGORIES JIKA ADA BIARKAN SAJA) ...
+
+            $data = ['name' => $request->name, 'updated_at' => now()];
+            
+            // --- TAMBAHAN UNTUK LOCATION ---
+            if ($type === 'locations') {
+                $data['address'] = $request->address;
+                $data['maps'] = $request->maps;
             }
 
-            DB::table($table)->where('id', $id)->update(['name' => $request->name, 'updated_at' => now()]);
+            DB::table($table)->where('id', $id)->update($data);
             return response()->json(['message' => 'Master ' . $type . ' berhasil diupdate!']);
         } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
     }
@@ -524,32 +590,43 @@ class ProjectController extends Controller
 
     public function storeWorkOrder(Request $request)
     {
-        $request->validate(['project_id' => 'required|exists:projects,id', 'title' => 'required|string', 'budget' => 'numeric']);
+        // Hapus 'budget' dari validasi karena sudah tidak dikirim dari Vue
+        $request->validate([
+            'project_id' => 'required|exists:projects,id', 
+            'title' => 'required|string'
+        ]);
+
         try {
             $id = DB::table('work_orders')->insertGetId([
                 'project_id'  => $request->project_id,
                 'title'       => $request->title,
                 'description' => $request->description,
-                'pic_name'    => $request->pic_name ?? 'SUHERY',
-                'budget'      => $request->budget ?? 0,
+                'priority'    => $request->priority ?? 'Medium', // Simpan priority
+                'category'    => $request->category ?? 'GENERAL', // Simpan category
                 'status'      => 'Draft',
                 'created_at'  => now(),
                 'updated_at'  => now(),
             ]);
             return response()->json(['message' => 'Work Order Dispatched', 'id' => $id], 201);
-        } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => $e->getMessage()], 500); 
+        }
     }
 
     public function updateWorkOrder(Request $request, $id)
     {
         try {
             DB::table('work_orders')->where('id', $id)->update([
-                'title'       => $request->title, 'description' => $request->description,
-                'pic_name'    => $request->pic_name, 'budget' => $request->budget,
-                'status'      => $request->status, 'updated_at' => now(),
+                'title'       => $request->title, 
+                'description' => $request->description,
+                'status'      => $request->status, 
+                'priority'    => $request->priority, // Tambahan field prioritas agar bisa di update
+                'updated_at'  => now(),
             ]);
             return response()->json(['message' => 'Work Order Updated']);
-        } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => $e->getMessage()], 500); 
+        }
     }
 
     public function deleteWorkOrder($id)
@@ -660,6 +737,39 @@ class ProjectController extends Controller
             DB::table('activity_documents')->where('id', $id)->delete();
             return response()->json(['message' => 'Dokumen berhasil dihapus!']);
         } catch (\Exception $e) { return response()->json(['error' => 'Gagal menghapus dokumen'], 500); }
+    }
+
+    public function toggleLike($taskId)
+    {
+        $userId = Auth::id();
+        $like = \App\Models\Like::where('user_id', $userId)
+            ->where('likeable_id', $taskId)
+            ->where('likeable_type', 'App\Models\ProjectTask')
+            ->first();
+
+        if ($like) {
+            $like->delete();
+            return response()->json(['status' => 'unliked']);
+        }
+
+        \App\Models\Like::create([
+            'user_id' => $userId,
+            'likeable_id' => $taskId,
+            'likeable_type' => 'App\Models\ProjectTask'
+        ]);
+        return response()->json(['status' => 'liked']);
+    }
+
+    public function postComment(Request $request, $taskId)
+    {
+        $comment = \App\Models\Comment::create([
+            'user_id' => Auth::id(),
+            'body' => $request->body,
+            'commentable_id' => $taskId,
+            'commentable_type' => 'App\Models\ProjectTask'
+        ]);
+        // Load data user agar nama/foto muncul di frontend
+        return response()->json($comment->load('user'));
     }
 
     public function storeSupport(Request $request)

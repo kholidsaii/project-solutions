@@ -91,8 +91,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
     Route::delete('/companies/{id}', [ProjectController::class, 'destroyCompany']);
     // Menguhubungkan Project dengan Companies
-    Route::get('/projects/{id}', [ProjectController::class, 'showProjectCompanies']);
+    Route::get('/projects/{id}/companies', [ProjectController::class, 'showProjectCompanies']);
     Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);
+
+    Route::post('/tasks/{taskId}/like', [ProjectController::class, 'toggleLike']);
+    Route::post('/tasks/{taskId}/comment', [ProjectController::class, 'postComment']);
 
     // --- 3. FINANCE & ACCOUNTING ---
     Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);

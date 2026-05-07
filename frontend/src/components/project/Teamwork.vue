@@ -596,7 +596,7 @@ onMounted(fetchData);
                 <div class="flex-1 min-w-0 overflow-hidden">
                   <h5 class="text-[13px] font-black text-slate-800 uppercase tracking-tight truncate group-hover:text-indigo-600 transition-colors">{{ m.name }}</h5>
                   <div class="mt-1">
-                    <span class="text-[9px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-widest truncate inline-block max-w-full">{{ m.position || m.role || 'Staff' }}</span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-widest truncate inline-block max-w-full">{{ m.role || m.potision || 'Staff' }}</span>
                   </div>
                 </div>
               </div>

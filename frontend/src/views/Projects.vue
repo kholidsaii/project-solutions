@@ -29,7 +29,7 @@ const currentTab = ref('overview');
 
         <!-- 4 Main Tabs -->
         <div class="flex gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 overflow-x-auto w-full md:w-auto custom-scroll">
-          <button v-for="tab in ['overview', 'data', 'teamwork', 'documents', 'setup']" :key="tab" 
+          <button v-for="tab in ['overview', 'data project', 'teamwork', 'documents', 'setup']" :key="tab" 
             @click="currentTab = tab"
             class="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap"
             :class="currentTab === tab ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'">
@@ -42,7 +42,7 @@ const currentTab = ref('overview');
       <!-- COMPONENTS RENDER AREA -->
       <div class="mt-2">
         <OverviewTab v-if="currentTab === 'overview'" />
-        <DataProjectTab v-if="currentTab === 'data'" />
+        <DataProjectTab v-if="currentTab === 'data project'" />
         <TeamworkTab v-if="currentTab === 'teamwork'" />
         <DocumentsTab v-if="currentTab === 'documents'" />
         <SetupTab v-if="currentTab === 'setup'" />

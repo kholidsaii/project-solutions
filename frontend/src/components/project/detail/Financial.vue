@@ -10,7 +10,6 @@ const activeFinanceNav = ref('overview');
 const showTxModal = ref(false);
 const projectTransactions = ref<any[]>([]);
 const dbCOAs = ref<any[]>([]);
-const dbBanks = ref<any[]>([]);
 
 const txForm = ref({ type: 'outflow', date: new Date().toISOString().split('T')[0], ref_number: '', coa_id: '', method: 'transfer', bank_from: '', bank_to: '', amount: 0, description: '', attachment: null as File | null });
 const invForm = ref({ title: '', amount: 0, due_date: '' });

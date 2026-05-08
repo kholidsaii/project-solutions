@@ -6,7 +6,6 @@ const emit = defineEmits(['refresh']);
 
 const dbCOAs = ref<any[]>([]);
 const activeAccEntity = ref('all');
-const activeAccCategory = ref('all');
 const searchCOA = ref('');
 const showCoaModal = ref(false);
 const coaForm = ref({ id: null as number | null, pt_id: '', code: '', name: '', category: 'Asset' });

@@ -221,8 +221,8 @@ class ProjectController extends Controller
             ->select(
                 'pt.*',
                 'ad.file_path as document', // Ambil path file agar gambar/video muncul
-                DB::raw("(SELECT COUNT(*) FROM likes WHERE likeable_id = pt.id AND likeable_type = 'App\\\\Models\\\\ProjectTask') as likes_count"),
-                DB::raw("(SELECT COUNT(*) FROM comments WHERE commentable_id = pt.id AND commentable_type = 'App\\\\Models\\\\ProjectTask') as comments_count")
+                DB::raw("(SELECT COUNT(*) FROM likes WHERE likeable_id = pt.id AND likeable_type = 'App\\Models\\ProjectTask') as likes_count"),
+                DB::raw("(SELECT COUNT(*) FROM comments WHERE commentable_id = pt.id AND commentable_type = 'App\\Models\\ProjectTask') as comments_count")
             )
             ->where('pt.project_id', $id)
             ->orderBy('pt.created_at', 'desc')
@@ -362,6 +362,8 @@ class ProjectController extends Controller
         $this->updateProjectProgress($task->project_id);
         return response()->json(['message' => 'Task Toggled']);
     }
+
+
 
     private function updateProjectProgress($projectId)
     {
@@ -566,8 +568,56 @@ class ProjectController extends Controller
 
     public function updateTask(Request $request, $id)
     {
-        DB::table('project_tasks')->where('id', $id)->update(['description' => $request->description, 'updated_at' => now()]);
-        return response()->json(['message' => 'Documentation Updated']);
+        try {
+            DB::beginTransaction();
+
+            // 1. Update Judul dan Deskripsi
+            $taskData = ['updated_at' => now()];
+            
+            if ($request->has('task_name')) {
+                $taskData['task_name'] = $request->task_name;
+            }
+            if ($request->has('description')) {
+                $taskData['description'] = $request->description;
+            }
+
+            DB::table('project_tasks')->where('id', $id)->update($taskData);
+
+            // 2. Handle jika ada File Media/Dokumen baru yang diupload
+            if ($request->hasFile('document')) {
+                $file = $request->file('document');
+                $path = $file->store('activity_docs', 'public_uploads');
+
+                // Cek apakah sebelumnya task ini sudah punya dokumen
+                $existingDoc = DB::table('activity_documents')->where('activity_id', $id)->first();
+
+                if ($existingDoc) {
+                    // Update dokumen lama
+                    DB::table('activity_documents')->where('activity_id', $id)->update([
+                        'file_path' => $path,
+                        'file_type' => $file->getClientOriginalExtension(),
+                        'file_size' => $file->getSize(),
+                    ]);
+                } else {
+                    // Insert dokumen baru jika sebelumnya kosong
+                    DB::table('activity_documents')->insert([
+                        'activity_id' => $id,
+                        'user_id' => Auth::id(),
+                        'title' => 'Attachment: ' . ($request->task_name ?? 'Updated'),
+                        'file_path' => $path,
+                        'file_type' => $file->getClientOriginalExtension(),
+                        'file_size' => $file->getSize(),
+                        'created_at' => now()
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Aktivitas berhasil diperbarui']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function deleteTask($id)

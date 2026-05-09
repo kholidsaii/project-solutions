@@ -7,33 +7,29 @@ const props = defineProps(['project']);
 const emit = defineEmits(['refresh']);
 const route = useRoute();
 
-// ==========================================
-// 1. IDENTITAS USER & DATA STATIS
-// ==========================================
 const currentUser = ref({
   id: 1,
   name: 'Kholid Superadmin',
   avatar: 'avatars/AtEyLvrVWA5Jfns8gaKQCCn1UUW08wuIiZn1Vkpg.png'
 });
 
+// --- REVISI: GET IMAGE URL (Routing Pintar untuk Private vs Public) ---
 const getImageUrl = (path: string) => {
   if (!path) return '';
+  if (path.startsWith('http')) return path.replace(/^http:\/\//i, 'https://'); 
   
-  if (path.startsWith('http')) {
-    return path.replace(/^http:\/\//i, 'https://'); 
+  let baseUrl = import.meta.env.VITE_API_URL || 'https://kerjapro.com'; 
+  baseUrl = baseUrl.replace(/\/api\/?$/, '');
+  
+  // Jika path adalah dokumen private (dari menu activity atau documents)
+  if (path.startsWith('activity_docs/') || path.startsWith('documents/')) {
+    return `${baseUrl}/api/files/download?path=${encodeURIComponent(path)}`;
   }
   
-  // Ambil Base URL
-  let baseUrl = import.meta.env.VITE_API_URL || 'https://kerjapro.com'; 
-  
-  // PERBAIKAN: Hapus "/api" di akhir URL jika ada, agar path gambar tidak salah sasaran
-  baseUrl = baseUrl.replace(/\/api\/?$/, '');
-
-  // Gabungkan URL yang sudah bersih dengan path gambar
+  // Jika path adalah file public (seperti avatars/ atau logo projects)
   return `${baseUrl}/uploads/${path}`;
 };
 
-// --- LOGIC DETEKSI TIPE FILE ---
 const isVideo = (filename: string) => {
   if (!filename) return false;
   return ['mp4', 'mov', 'avi', 'webm'].includes(filename.split('.').pop()?.toLowerCase() || '');
@@ -54,28 +50,27 @@ const getFileIcon = (filename: string) => {
   return 'fas fa-file-alt text-slate-400';
 };
 
+// --- REVISI: TAMPILKAN NAMA ASLI FILE ---
 const getFileName = (path: string) => {
   if (!path) return '';
-  return path.split('/').pop() || 'Dokumen';
+  const fullName = path.split('/').pop() || 'Dokumen';
+  // Hapus timestamp prefix yang ditambahkan oleh backend (contoh: 1715421_fileasli.pdf)
+  return fullName.replace(/^\d+_/, '');
 };
 
-// ==========================================
-// 2. STATE MANAGEMENT
-// ==========================================
 const showAddModal = ref(false);
 const isLoadingPost = ref(false);
 const commentInputs = ref<Record<number, string>>({});
 const locations = ref<any[]>([]);
 
 const getLocationName = (id: number | null) => {
-  if (!id) return 'Site Project'; // Default jika tidak ada lokasi
+  if (!id) return 'Site Project'; 
   const loc = locations.value.find((l: any) => l.id === id);
   return loc ? loc.name : 'Site Project';
 };
 
 const selectedTask = ref<any>(null);
 const showDetailModal = ref(false);
-
 const activeDropdown = ref<number | null>(null);
 
 const showEditModal = ref(false);
@@ -96,9 +91,6 @@ const newTask = ref({
   file: null as File | null
 });
 
-// ==========================================
-// 3. API & LOGIC
-// ==========================================
 onMounted(async () => {
   try {
     const res = await api.get('/master-data/locations');
@@ -120,7 +112,6 @@ const handleFileChange = (e: Event) => {
   }
 };
 
-// TAMBAHAN: Handler file untuk form Edit
 const handleEditFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
@@ -134,7 +125,6 @@ const toggleDropdown = (taskId: number) => {
   activeDropdown.value = activeDropdown.value === taskId ? null : taskId;
 };
 
-// --- FIX BUGS: LIKE DAN COMMENT ---
 const handleToggleLike = async (task: any) => {
   try {
     const res = await api.post(`/tasks/${task.id}/like`);
@@ -144,7 +134,7 @@ const handleToggleLike = async (task: any) => {
       task.likes_count += 1;
       task.is_liked_by_me = true;
     } else {
-      task.likes_count = Math.max(0, task.likes_count - 1); // Cegah nilai minus
+      task.likes_count = Math.max(0, task.likes_count - 1); 
       task.is_liked_by_me = false;
     }
   } catch (e) { console.error(e); }
@@ -158,7 +148,6 @@ const handlePostComment = async (task: any) => {
     const response = await api.post(`/tasks/${task.id}/comment`, { body });
     if (!task.comments) task.comments = []; 
     
-    // MAPPING DATA BACKEND KE FRONTEND AGAR TIDAK CRASH
     const newComment = {
       id: response.data.id,
       body: response.data.body,
@@ -203,7 +192,6 @@ const handleDeleteTask = async (taskId: number) => {
   } catch (e) { console.error("Gagal menghapus task", e); }
 };
 
-// PERBAIKAN: Tangkap task_name dan document saat buka modal
 const openEditModal = (task: any) => {
   activeDropdown.value = null; 
   editTaskForm.value = { 
@@ -216,16 +204,13 @@ const openEditModal = (task: any) => {
   showEditModal.value = true;
 };
 
-// PERBAIKAN: Gunakan FormData & post dengan _method PUT
 const handleEditTask = async () => {
   isEditing.value = true;
-  
   const formData = new FormData();
-  formData.append('_method', 'PUT'); // Trik Laravel untuk method spoofing
+  formData.append('_method', 'PUT'); 
   formData.append('task_name', editTaskForm.value.name);
   formData.append('description', editTaskForm.value.description);
   
-  // Apabila ada file baru yg diupload
   if (editTaskForm.value.file) {
     formData.append('document', editTaskForm.value.file);
   }
@@ -253,6 +238,31 @@ const closeDetailModal = () => {
   showDetailModal.value = false;
   selectedTask.value = null;
   document.body.style.overflow = 'auto';
+};
+
+// --- REVISI: MEKANISME DOWNLOAD PRIVATE FILE ---
+const downloadPrivateFile = async (path: string) => {
+  if (!path) return;
+  if (path.startsWith('http')) {
+     window.open(path, '_blank');
+     return;
+  }
+  
+  try {
+    const response = await api.get(`/files/download?path=${encodeURIComponent(path)}`, {
+      responseType: 'blob' 
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', getFileName(path));
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert('Gagal mengunduh file private.');
+  }
 };
 </script>
 
@@ -308,7 +318,9 @@ const closeDetailModal = () => {
             <img v-else-if="isImage(task.document)" :src="getImageUrl(task.document)" class="w-full h-full object-cover">
             <div v-else class="flex flex-col items-center text-slate-500">
                <i :class="getFileIcon(task.document)" class="text-5xl mb-3 drop-shadow-sm"></i>
-               <span class="text-[10px] font-bold px-4 text-center line-clamp-1 bg-white px-2 py-1 rounded shadow-sm border border-slate-200">{{ getFileName(task.document) }}</span>
+               <span class="text-[10px] font-bold px-4 text-center line-clamp-1 bg-white px-2 py-1 rounded shadow-sm border border-slate-200" :title="getFileName(task.document)">
+                 {{ getFileName(task.document) }}
+               </span>
             </div>
           </template>
           <div v-else class="flex flex-col items-center justify-center text-slate-300">
@@ -398,7 +410,9 @@ const closeDetailModal = () => {
             <div v-else class="text-white flex flex-col items-center bg-slate-900 w-full h-full justify-center">
               <i :class="getFileIcon(selectedTask.document)" class="text-6xl md:text-8xl mb-4 drop-shadow-lg"></i>
               <span class="text-xs md:text-sm font-bold opacity-80">{{ getFileName(selectedTask.document) }}</span>
-              <a :href="getImageUrl(selectedTask.document)" target="_blank" download class="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 transition-colors rounded-full text-xs font-bold uppercase tracking-widest shadow-lg"><i class="fas fa-download mr-1"></i> Unduh File</a>
+              <button @click="downloadPrivateFile(selectedTask.document)" class="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 transition-colors rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                 <i class="fas fa-download mr-1"></i> Unduh File
+              </button>
             </div>
           </template>
           <div v-else class="text-slate-600 flex flex-col items-center justify-center bg-slate-900 w-full h-full">

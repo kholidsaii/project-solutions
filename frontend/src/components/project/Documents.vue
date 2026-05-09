@@ -10,7 +10,6 @@ const documentTags = ref<any[]>([]);
 const selectedTab = ref('all');
 const isUploading = ref(false);
 
-// 🔴 PASTIKAN DUA BARIS INI TERTULIS SEPERTI INI:
 const selectedFile = ref<File | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -22,11 +21,10 @@ const form = ref({
 // --- FETCH DATA ---
 const fetchData = async () => {
   try {
-    // Jalankan fetch secara paralel agar lebih cepat
     const [resDocs, resTags, resActivities] = await Promise.all([
       api.get('/project-documents'),
-      api.get('/master-data/tags_docs'), // Mengambil tag document dari Master Setup
-      api.get('/activities').catch(() => ({ data: [] })) // Opsional: ambil list activity jika ada
+      api.get('/master-data/tags_docs'),
+      api.get('/activities').catch(() => ({ data: [] })) 
     ]);
 
     documents.value = resDocs.data.data || resDocs.data;
@@ -48,7 +46,6 @@ const handleFileChange = (e: Event) => {
   if (target.files && target.files.length > 0) {
     const file = target.files[0] as File; 
     
-    // Validasi ukuran (Max 20MB)
     if (file.size > 20 * 1024 * 1024) {
       alert('Ukuran file maksimal adalah 20MB!');
       clearFile();
@@ -76,13 +73,9 @@ const handleUpload = async () => {
     });
     
     alert('Dokumen berhasil diunggah!');
-    
-    // Reset Form
     form.value.title = '';
     form.value.activity_id = '';
     clearFile();
-    
-    // Refresh tabel
     fetchData();
   } catch (error: any) {
     const msg = error.response?.data?.error || error.message;
@@ -104,6 +97,30 @@ const handleDelete = async (id: number) => {
   }
 };
 
+// --- REVISI: DOWNLOAD FILE PRIVATE MENGGUNAKAN AXIOS ---
+const handleDownload = async (path: string, originalName: string) => {
+  if (path.startsWith('http')) {
+     window.open(path, '_blank');
+     return;
+  }
+  
+  try {
+    const response = await api.get(`/files/download?path=${encodeURIComponent(path)}`, {
+      responseType: 'blob' // Mengambil raw file
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', originalName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert('Gagal mengunduh file, pastikan sesi anda masih aktif.');
+  }
+};
+
 // --- UTILITIES ---
 const formatSize = (bytes: number) => {
   if (!bytes) return '0 B';
@@ -119,7 +136,14 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// Menentukan icon berdasarkan ekstensi file
+// REVISI: Menampilkan nama asli dari Backend (hapus format timestamp)
+const getFileName = (path: string) => {
+  if (!path) return 'Dokumen';
+  let name = path.split('/').pop() || 'Dokumen';
+  // Menghapus string angka didepan dan underscore (misal: 16839293_file.pdf menjadi file.pdf)
+  return name.replace(/^\d+_/, '');
+};
+
 const getFileIcon = (ext: string) => {
   if (!ext) return { icon: 'fas fa-file', color: 'text-slate-400', bg: 'bg-slate-100' };
   const type = ext.toLowerCase();
@@ -139,7 +163,6 @@ onMounted(() => {
 <template>
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-500 pb-20 mt-4">
     
-    <!-- SIDEBAR NAVIGATION (Kiri) -->
     <div class="lg:col-span-3 space-y-6">
       <div class="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm sticky top-8">
         <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-5">
@@ -147,8 +170,6 @@ onMounted(() => {
         </div>
         
         <div class="p-4 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          
-          <!-- Menu Utama -->
           <div>
             <h4 class="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest pl-2 flex items-center gap-2">
               <i class="fas fa-folder text-indigo-400"></i> Repositori
@@ -162,17 +183,14 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Document Tags (Terhubung ke Setup Master) -->
           <div class="pt-4 border-t border-slate-100">
             <h4 class="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest pl-2 flex items-center gap-2">
               <i class="fas fa-tags text-amber-400"></i> Kategori Label
             </h4>
             <div class="space-y-1">
-              <!-- Jika tag kosong -->
               <div v-if="documentTags.length === 0" class="text-[9px] text-slate-400 italic pl-4 font-bold">
                 Belum ada tag disetup
               </div>
-              <!-- Looping Master Tags Docs -->
               <button v-for="tag in documentTags" :key="tag.id" @click="selectedTab = `tag_${tag.id}`"
                 class="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-bold rounded-2xl transition-all uppercase tracking-widest"
                 :class="selectedTab === `tag_${tag.id}` ? 'bg-amber-50 text-amber-600 shadow-sm border border-amber-100' : 'text-slate-500 hover:bg-slate-50 hover:text-amber-500 border border-transparent'">
@@ -180,15 +198,12 @@ onMounted(() => {
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </div>
 
-    <!-- MAIN CONTENT (Kanan) -->
     <div class="lg:col-span-9 flex flex-col gap-6">
       
-      <!-- Top Bar -->
       <div class="bg-white px-8 py-5 rounded-[2.5rem] border border-slate-200 shadow-sm flex items-center gap-4 text-indigo-900">
         <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl shadow-inner text-indigo-600">
           <i class="fas fa-cloud-upload-alt"></i>
@@ -199,11 +214,9 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Form Upload Area -->
       <div class="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm transition-all">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
           
-          <!-- Input Judul Dokumen -->
           <div class="lg:col-span-4 space-y-2">
             <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Judul Dokumen</label>
             <input v-model="form.title" type="text" 
@@ -211,42 +224,35 @@ onMounted(() => {
               placeholder="CONTOH: KONTRAK KERJASAMA">
           </div>
 
-          <!-- Dropdown Pilih Activity -->
           <div class="lg:col-span-4 space-y-2">
             <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Terkait Activity</label>
             <div class="relative">
               <select v-model="form.activity_id" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold outline-none uppercase appearance-none cursor-pointer focus:ring-2 ring-indigo-100 shadow-inner">
                 <option value="" disabled>-- Pilih Activity --</option>
                 <option v-for="act in activities" :key="act.id" :value="act.id">{{ act.title || act.name || `Activity #${act.id}` }}</option>
-                <!-- Opsi fallback jika activities kosong, agar tetap bisa dites -->
                 <option v-if="activities.length === 0" value="1">Dummy Activity #1</option>
               </select>
               <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
             </div>
           </div>
 
-          <!-- Input File Lampiran -->
           <div class="lg:col-span-4 space-y-2">
             <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih File (Max 20MB)</label>
             <div class="flex gap-2 relative">
-              <!-- Custom File Input Display -->
               <div class="flex-1 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-4 text-[10px] font-bold shadow-inner flex items-center overflow-hidden whitespace-nowrap">
                 <span v-if="selectedFile" class="text-indigo-600 truncate"><i class="fas fa-check-circle mr-1"></i> {{ selectedFile.name }}</span>
                 <span v-else class="text-slate-400 uppercase"><i class="fas fa-paperclip mr-1"></i> Belum ada file</span>
               </div>
-              <!-- Tombol Browse -->
               <label class="w-12 h-12 bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:text-indigo-600 text-indigo-400 transition-all flex-none group">
                 <input type="file" @change="handleFileChange" class="hidden" ref="fileInput">
                 <i class="fas fa-folder-open text-sm group-hover:scale-110 transition-transform"></i>
               </label>
-              <!-- Tombol Clear File -->
               <button v-if="selectedFile" @click="clearFile" class="absolute right-[3.5rem] top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center text-[10px] hover:bg-rose-500 hover:text-white transition-colors">
                 <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
 
-          <!-- Tombol Eksekusi -->
           <div class="lg:col-span-12 flex justify-end pt-2 border-t border-slate-100/60">
             <button @click="handleUpload" :disabled="isUploading" 
               class="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -257,7 +263,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Data Table Area -->
       <div class="bg-white rounded-[3rem] border border-slate-200 shadow-sm flex-1 overflow-hidden mt-2">
         <div class="overflow-x-auto">
           <table class="w-full text-left min-w-[800px]">
@@ -276,13 +281,14 @@ onMounted(() => {
                 
                 <td class="px-6 py-5">
                   <div class="flex items-center gap-4">
-                    <!-- Icon Berdasarkan Tipe File -->
                     <div :class="getFileIcon(doc.file_type).bg + ' ' + getFileIcon(doc.file_type).color" 
                          class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm border border-white flex-none">
                       <i :class="getFileIcon(doc.file_type).icon"></i>
                     </div>
                     <div>
-                      <div class="text-[11px] font-black text-slate-700 uppercase tracking-tight">{{ doc.title }}</div>
+                      <div class="text-[11px] font-black text-slate-700 uppercase tracking-tight" :title="getFileName(doc.file_path)">
+                        {{ getFileName(doc.file_path) }}
+                      </div>
                       <div class="flex items-center gap-2 mt-0.5">
                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest border border-slate-200 px-1.5 rounded bg-white">
                           {{ doc.file_type || 'UNKNOWN' }}
@@ -304,12 +310,10 @@ onMounted(() => {
 
                 <td class="px-8 py-5 text-right">
                   <div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <!-- Tombol Download (Arahkan ke URL file_path) -->
-                    <a :href="doc.file_path.startsWith('http') ? doc.file_path : `http://localhost:8000/storage/${doc.file_path}`" 
-                       target="_blank" download
-                       class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-all shadow-sm">
+                    <button @click="handleDownload(doc.file_path, getFileName(doc.file_path))"
+                       class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-all shadow-sm cursor-pointer">
                       <i class="fas fa-download text-[10px]"></i>
-                    </a>
+                    </button>
                     
                     <button @click="handleDelete(doc.id)" class="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-all shadow-sm">
                       <i class="fas fa-trash-alt text-[10px]"></i>
@@ -318,7 +322,6 @@ onMounted(() => {
                 </td>
               </tr>
 
-              <!-- Empty State -->
               <tr v-if="documents.length === 0">
                 <td colspan="5" class="px-6 py-16 text-center">
                   <i class="fas fa-folder-open text-4xl text-slate-200 mb-3"></i>

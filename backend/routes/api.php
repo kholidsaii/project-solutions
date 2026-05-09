@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    // --- PRIVATE FILE SERVER ---
+    Route::get('/files/download', [ProjectController::class, 'servePrivateFile']);
+
     // --- PROJECT MANAGEMENT ---
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::post('/projects', [ProjectController::class, 'store']);
@@ -22,8 +25,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/work-categories', [ProjectController::class, 'getCategories']);
     Route::post('/work-categories', [ProjectController::class, 'storeCategory']);
     Route::get('/projects/category/{id}', [ProjectController::class, 'getByWorkCategory']);
-    Route::post('/project-tasks', [ProjectController::class, 'storeTask']); // Perbaikan route
-    Route::put('/project-tasks/{id}/toggle', [ProjectController::class, 'toggleTask']); // Perbaikan route
+    Route::post('/project-tasks', [ProjectController::class, 'storeTask']);
+    Route::put('/project-tasks/{id}/toggle', [ProjectController::class, 'toggleTask']);
 
     // --- USER MANAGEMENT ---
     Route::get('/users', [AuthController::class, 'index']);
@@ -44,27 +47,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/detail/{id}', [ProjectController::class, 'updateProjectDetail']);
 
    // --- PROJECT TASKS / AKTIVTY ---
-
-    // 1. Untuk menambah task baru
     Route::post('/project-tasks', [ProjectController::class, 'storeTask']);
     Route::put('/project-tasks/{id}/toggle', [ProjectController::class, 'toggleTask']);
     Route::put('/project-tasks/{id}', [ProjectController::class, 'updateTask']);
     Route::delete('/project-tasks/{id}', [ProjectController::class, 'deleteTask']);
+    
     // --- PROJECT workorder ---
     Route::get('/work-orders', [ProjectController::class, 'getWorkOrders']);
     Route::post('/work-orders', [ProjectController::class, 'storeWorkOrder']);
     Route::put('/work-orders/{id}', [ProjectController::class, 'updateWorkOrder']);
     Route::delete('/work-orders/{id}', [ProjectController::class, 'deleteWorkOrder']);
 
-    // Route::post('/projects/{id}/team', [ProjectController::class, 'addTeamMember']);
-    // Route::delete('/projects/{projectId}/team/{userId}', [ProjectController::class, 'removeTeamMember']);
-    // Route untuk hapus member dari project
-
     Route::post('/project-productions', [ProjectController::class, 'storeProduction']);
     Route::delete('/project-productions/{id}', [ProjectController::class, 'deleteProduction']);
 
-    // Route::delete('/project-documents/{id}', [ProjectController::class, 'deleteDocument']);
-    // Route::post('/project-documents', [ProjectController::class, 'storeDocument']);
     Route::get('/project-documents', [ProjectController::class, 'indexDocuments']);
     Route::post('/project-documents', [ProjectController::class, 'storeDocuments']);
     Route::delete('/project-documents/{id}', [ProjectController::class, 'destroyDocuments']);
@@ -79,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- PROJECT PURCHASING ---
     Route::post('/project-purchasings', [ProjectController::class, 'storePurchasing']);
     Route::delete('/project-purchasings/{id}', [ProjectController::class, 'deletePurchasing']);
+    
    // --- 1. TEAMWORK & RESOURCE MANAGEMENT ---
     Route::get('/teamwork/summary', [ProjectController::class, 'getTeamworkSummary']);
     Route::get('/teamwork/top-outstanding', [ProjectController::class, 'getTopOutstanding']);
@@ -90,7 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/companies', [ProjectController::class, 'storeCompany']);
     Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
     Route::delete('/companies/{id}', [ProjectController::class, 'destroyCompany']);
-    // Menguhubungkan Project dengan Companies
+    
     Route::get('/projects/{id}/companies', [ProjectController::class, 'showProjectCompanies']);
     Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);
 
@@ -106,25 +103,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/finance/consolidated', [ProjectController::class, 'getConsolidatedFinance']);
     Route::get('/accounting/coas', [ProjectController::class, 'getCOAs']);
     Route::post('/accounting/coas', [ProjectController::class, 'storeCOA']);
-    // Gunakan yang ini agar sesuai dengan pemanggilan di Vue
     Route::get('/accounting/ledger', [ProjectController::class, 'getJournals']); 
     Route::get('/finance/cashflow', [ProjectController::class, 'getCashFlow']);
 
-    // Project Invoices
-    Route::post('/project-invoices', [ProjectController::class, 'storeInvoice']);
-    Route::put('/project-invoices/{id}/status', [ProjectController::class, 'updateInvoiceStatus']);
-
-    // --- 3. FINANCE & ACCOUNTING ---
-    Route::get('/finance/pt-performance', [ProjectController::class, 'getPTPerformance']);
-    
-    // ---> TAMBAHKAN 2 BARIS INI <---
     Route::get('/finance/transactions', [ProjectController::class, 'getTransactions']);
     Route::post('/finance/transactions', [ProjectController::class, 'storeTransaction']);
-    Route::put('/finance/transactions/{id}', [ProjectController::class, 'updateTransaction']); // <--- TAMBAHKAN INI
-    Route::delete('/finance/transactions/{id}', [ProjectController::class, 'destroyTransaction']); // <--- TAMBAHKAN INI
-    // -------------------------------
+    Route::put('/finance/transactions/{id}', [ProjectController::class, 'updateTransaction']); 
+    Route::delete('/finance/transactions/{id}', [ProjectController::class, 'destroyTransaction']); 
+    
     Route::put('/accounting/coas/{id}', [ProjectController::class, 'updateCOA']);
     Route::delete('/accounting/coas/{id}', [ProjectController::class, 'deleteCOA']);
+    
     // --- BANKING MASTER ---
     Route::get('/finance/banks', [ProjectController::class, 'getBanks']);
     Route::post('/finance/banks', [ProjectController::class, 'storeBank']);

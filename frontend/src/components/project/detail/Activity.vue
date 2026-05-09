@@ -16,9 +16,23 @@ const currentUser = ref({
   avatar: 'avatars/AtEyLvrVWA5Jfns8gaKQCCn1UUW08wuIiZn1Vkpg.png'
 });
 
+// KODE BARU (GUNAKAN INI)
 const getImageUrl = (path: string) => {
   if (!path) return '';
-  return path.startsWith('http') ? path : `http://localhost:8000/uploads/${path}`;
+  
+  // Jika path sudah berupa URL lengkap (mengandung http/https), langsung gunakan
+  if (path.startsWith('http')) {
+    // Opsional: Paksa ubah http menjadi https jika sedang di production (untuk keamanan ekstra)
+    return path.replace(/^http:\/\//i, 'https://'); 
+  }
+  
+  // Jika path hanya nama file/direktori, gabungkan dengan URL API Anda.
+  // Gunakan import.meta.env.VITE_API_URL jika Anda menggunakan Vite (disarankan).
+  // ATAU ganti string di bawah dengan 'https://kerjapro.com' (tanpa slash di akhir).
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://kerjapro.com'; 
+  
+  // Sesuaikan '/uploads/' dengan lokasi folder public di backend Anda
+  return `${baseUrl}/uploads/${path}`;
 };
 
 // --- LOGIC DETEKSI TIPE FILE ---

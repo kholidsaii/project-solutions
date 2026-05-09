@@ -19,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Memaksa Laravel menggunakan HTTPS jika diakses di production (kerjapro.com)
+        if (config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
     }
 }

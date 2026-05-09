@@ -306,7 +306,8 @@ class ProjectController extends Controller
             'task_name' => 'required',
             'work_order_id' => 'nullable|exists:work_orders,id',
             'location_id' => 'nullable|exists:work_locations,id',
-            'document' => 'nullable|file|max:20480', 
+            // KODE BARU: Batasi ekstensi file secara ketat agar aman
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx,zip,rar|max:20480', 
         ]);
 
         try {
@@ -568,6 +569,12 @@ class ProjectController extends Controller
 
     public function updateTask(Request $request, $id)
     {
+        $request->validate([
+            'task_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx,zip,rar|max:20480',
+        ]);
+
         try {
             DB::beginTransaction();
 
@@ -767,16 +774,31 @@ class ProjectController extends Controller
 
     public function storeDocuments(Request $request)
     {
-        $request->validate(['activity_id' => 'required|integer', 'title' => 'required|string|max:255', 'document' => 'required|file|max:20480']);
+        // PERBAIKAN: Tambahkan aturan mimes untuk membatasi ekstensi file
+        $request->validate([
+            'activity_id' => 'required|integer', 
+            'title'       => 'required|string|max:255', 
+            'document'    => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,zip,rar|max:20480'
+        ]);
+
         try {
             $file = $request->file('document');
             $path = $file->store('documents', 'public_uploads');
+            
             DB::table('activity_documents')->insert([
-                'activity_id' => $request->activity_id, 'user_id' => Auth::id(), 'title' => $request->title,
-                'file_path' => $path, 'file_type' => $file->getClientOriginalExtension(), 'file_size' => $file->getSize(), 'created_at' => now()
+                'activity_id' => $request->activity_id, 
+                'user_id'     => Auth::id(), 
+                'title'       => $request->title,
+                'file_path'   => $path, 
+                'file_type'   => $file->getClientOriginalExtension(), 
+                'file_size'   => $file->getSize(), 
+                'created_at'  => now()
             ]);
+            
             return response()->json(['message' => 'Dokumen berhasil diunggah!'], 201);
-        } catch (\Exception $e) { return response()->json(['error' => 'Gagal mengunggah dokumen: ' . $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => 'Gagal mengunggah dokumen: ' . $e->getMessage()], 500); 
+        }
     }
 
     public function destroyDocuments($id)

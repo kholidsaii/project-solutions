@@ -280,9 +280,6 @@ class ProjectController extends Controller
         return response()->json($projects);
     }
 
-    // ==========================================
-    // REVISI: Upload Private dengan Nama Asli
-    // ==========================================
     public function storeTask(Request $request)
     {
         $request->validate([
@@ -309,15 +306,9 @@ class ProjectController extends Controller
             // UPLOAD FILE SECARA PRIVATE
             if ($request->hasFile('document')) {
                 $file = $request->file('document');
-                
-                // Bersihkan nama asli agar URL friendly
                 $originalName = $file->getClientOriginalName();
                 $cleanName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $originalName);
-                
-                // Gabungkan timestamp agar tidak tertimpa
                 $filename = time() . '_' . $cleanName;
-                
-                // Gunakan disk 'local' (mengarah ke storage/app private)
                 $path = $file->storeAs('activity_docs', $filename, 'local');
 
                 DB::table('activity_documents')->insert([
@@ -626,17 +617,13 @@ class ProjectController extends Controller
             
             $projectId = $task->project_id;
 
-            // CARI DOKUMEN YANG TERKAIT DENGAN TASK INI
             $existingDocs = DB::table('activity_documents')->where('activity_id', $id)->get();
-            
-            // HAPUS FILE FISIKNYA DARI SERVER
             foreach ($existingDocs as $doc) {
                 if ($doc->file_path && Storage::disk('local')->exists($doc->file_path)) {
                     Storage::disk('local')->delete($doc->file_path);
                 }
             }
 
-            // Hapus data dari tabel
             DB::table('activity_documents')->where('activity_id', $id)->delete();
             DB::table('project_tasks')->where('id', $id)->delete();
             
@@ -775,7 +762,6 @@ class ProjectController extends Controller
         return response()->json($query->orderBy('created_at', 'desc')->get());
     }
 
-    // REVISI UPLOAD DARI MENU DOCUMENTS
     public function storeDocuments(Request $request)
     {
         $request->validate([
@@ -786,8 +772,6 @@ class ProjectController extends Controller
 
         try {
             $file = $request->file('document');
-            
-            // Format Nama Original + Private Local Storage
             $originalName = $file->getClientOriginalName();
             $cleanName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $originalName);
             $filename = time() . '_' . $cleanName;
@@ -816,25 +800,19 @@ class ProjectController extends Controller
             $doc = DB::table('activity_documents')->where('id', $id)->first();
             if (!$doc) return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
 
-            // Simpan ID Activity Induk sebelum dokumen dihapus
             $activityId = $doc->activity_id;
 
-            // 1. HAPUS FILE FISIKNYA DARI SERVER (Storage Private)
             if ($doc->file_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($doc->file_path)) {
                 \Illuminate\Support\Facades\Storage::disk('local')->delete($doc->file_path);
             }
 
-            // 2. Hapus data dokumen dari tabel database
             DB::table('activity_documents')->where('id', $id)->delete();
 
-            // 3. REVISI: HAPUS ACTIVITY INDUK AGAR CARD IKUT HILANG
             if ($activityId) {
                 $task = DB::table('project_tasks')->where('id', $activityId)->first();
                 if ($task) {
                     $projectId = $task->project_id;
                     DB::table('project_tasks')->where('id', $activityId)->delete();
-                    
-                    // Update progress project setelah card dihapus
                     $this->updateProjectProgress($projectId);
                 }
             }
@@ -1045,7 +1023,6 @@ class ProjectController extends Controller
         ]);
 
         try {
-            // PERBAIKAN: Hapus 'updated_at' => now() dari array $data
             $data = [
                 'name' => $request->name, 
                 'legal_name' => $request->legal_name, 
@@ -1203,14 +1180,28 @@ class ProjectController extends Controller
         } catch (\Exception $e) { return response()->json(['error' => 'Gagal: Akun ini terkait transaksi.'], 500); }
     }
 
+    // ==============================================================
+    // REVISI: GET JOURNALS SEKARANG JOIN KE TRANSAKSI
+    // ==============================================================
     public function getJournals(Request $request)
     {
         $query = DB::table('accounting_journals')
             ->leftJoin('accounting_coas', 'accounting_journals.coa_id', '=', 'accounting_coas.id')
-            ->select('accounting_journals.*', 'accounting_coas.name as coa_name', 'accounting_coas.code as coa_code');
+            ->leftJoin('finance_transactions', 'accounting_journals.transaction_id', '=', 'finance_transactions.id')
+            ->select(
+                'accounting_journals.*', 
+                'accounting_coas.name as coa_name', 
+                'accounting_coas.code as coa_code',
+                'accounting_coas.category as coa_category',
+                'finance_transactions.bank_from',
+                'finance_transactions.bank_to',
+                'finance_transactions.transaction_number'
+            );
+            
         if ($request->has('pt_id') && $request->pt_id !== 'all') {
             $query->where('accounting_journals.pt_id', $request->pt_id);
         }
+        
         return response()->json($query->orderBy('transaction_date', 'desc')->get());
     }
 
@@ -1275,19 +1266,22 @@ class ProjectController extends Controller
         } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
     }
 
-    public function getTransactions(Request $request)
+   public function getTransactions(Request $request)
     {
         try {
             $query = DB::table('finance_transactions')
                 ->leftJoin('projects', 'finance_transactions.project_id', '=', 'projects.id')
                 ->leftJoin('accounting_coas', 'finance_transactions.coa_id', '=', 'accounting_coas.id')
                 ->leftJoin('companies', 'finance_transactions.company_id', '=', 'companies.id')
+                ->leftJoin('users', 'finance_transactions.member_id', '=', 'users.id') // Join untuk nama PIC
                 ->select(
                     'finance_transactions.*',
                     'projects.project_title as project_name',
                     'accounting_coas.name as coa_name',
+                    'projects.logo as project_logo',
                     'accounting_coas.code as coa_code',
-                    'companies.name as company_name'
+                    'companies.name as company_name',
+                    'users.name as member_name'
                 );
 
             if ($request->has('status') && $request->status !== 'all') $query->where('finance_transactions.status', $request->status);
@@ -1307,13 +1301,15 @@ class ProjectController extends Controller
             'amount' => 'required|numeric',
             'coa_id' => 'required',
             'method' => 'required',
+            'status' => 'required', 
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120'
         ]);
 
         try {
+            DB::beginTransaction(); 
+
             $filePath = null;
             if ($request->hasFile('attachment')) {
-                // Biarkan finance ini di public_uploads sesuai aslinya, atau ubah juga bila perlu.
                 $filePath = $request->file('attachment')->store('finance_attachments', 'public_uploads');
             }
 
@@ -1332,15 +1328,24 @@ class ProjectController extends Controller
                 'bank_to' => $request->bank_to,
                 'amount' => $request->amount,
                 'description' => $request->description,
+                'status' => $request->status, 
+                'label_id' => $request->label_id ?: null, 
+                'member_id' => $request->member_id ?: null, 
                 'attachment_path' => $filePath, 
-                'status' => 'Pending',
                 'created_by' => Auth::id(),
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
-            return response()->json(['message' => 'Transaksi & Dokumen berhasil disimpan!', 'id' => $id], 201);
+            // TRIGGER AKUNTANSI JIKA STATUS "SELESAI"
+            if ($request->status === 'selesai') {
+                $this->syncAccountingJournal($id, $request);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Transaksi berhasil disimpan!', 'id' => $id], 201);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json(['error' => 'Gagal simpan: ' . $e->getMessage()], 500);
         }
     }
@@ -1353,10 +1358,13 @@ class ProjectController extends Controller
             'amount' => 'required|numeric',
             'coa_id' => 'required',
             'method' => 'required',
+            'status' => 'required',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120'
         ]);
 
         try {
+            DB::beginTransaction();
+
             $data = [
                 'transaction_date' => $request->date,
                 'ref_number' => $request->ref_number,
@@ -1369,6 +1377,9 @@ class ProjectController extends Controller
                 'bank_to' => $request->bank_to,
                 'amount' => $request->amount,
                 'description' => $request->description,
+                'status' => $request->status,
+                'label_id' => $request->label_id ?: null,
+                'member_id' => $request->member_id ?: null,
                 'updated_at' => now()
             ];
 
@@ -1377,9 +1388,17 @@ class ProjectController extends Controller
             }
 
             DB::table('finance_transactions')->where('id', $id)->update($data);
-            
+
+            if ($request->status === 'selesai') {
+                $this->syncAccountingJournal($id, $request);
+            } else {
+                DB::table('accounting_journals')->where('transaction_id', $id)->delete();
+            }
+
+            DB::commit();
             return response()->json(['message' => 'Update Sukses!']);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -1387,12 +1406,45 @@ class ProjectController extends Controller
     public function destroyTransaction($id)
     {
         try {
+            DB::beginTransaction();
+            DB::table('accounting_journals')->where('transaction_id', $id)->delete();
             DB::table('finance_transactions')->where('id', $id)->delete();
+            
+            DB::commit();
             return response()->json(['message' => 'Transaksi berhasil dihapus!']);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json(['error' => 'Gagal menghapus data'], 500);
         }
     }   
+
+    private function syncAccountingJournal($trxId, $request)
+    {
+        $bankId = ($request->type === 'inflow') ? $request->bank_to : $request->bank_from;
+
+        $journalData = [
+            'transaction_id' => $trxId,
+            'coa_id' => $request->coa_id,
+            'pt_id' => $request->company_id ?: null,
+            'project_id' => $request->project_id ?: null,
+            'bank_id' => $bankId ?: null,
+            'debit' => ($request->type === 'inflow') ? $request->amount : 0,
+            'credit' => ($request->type === 'outflow') ? $request->amount : 0,
+            'description' => $request->description,
+            'transaction_date' => $request->date,
+            'reference_type' => 'Finance Transaction',
+            'updated_at' => now()
+        ];
+
+        $exists = DB::table('accounting_journals')->where('transaction_id', $trxId)->exists();
+
+        if ($exists) {
+            DB::table('accounting_journals')->where('transaction_id', $trxId)->update($journalData);
+        } else {
+            $journalData['created_at'] = now();
+            DB::table('accounting_journals')->insert($journalData);
+        }
+    } 
     
     public function getBanks(Request $request)
     {
@@ -1432,19 +1484,12 @@ class ProjectController extends Controller
         } catch (\Exception $e) { return response()->json(['error' => 'Gagal menghapus, data mungkin sedang digunakan.'], 500); }
     }
 
-    // ==============================================================
-    // REVISI: FUNGSI BARU UNTUK MENGAKSES PRIVATE FILE VIA SANCTUM
-    // ==============================================================
     public function servePrivateFile(Request $request)
     {
         $path = $request->query('path');
-        
-        // Pengecekan path yang diberikan dan eksistensinya di disk local
         if (!$path || !\Storage::disk('local')->exists($path)) {
             return response()->json(['message' => 'File tidak ditemukan di sistem private'], 404);
         }
-
-        // Return file sebagai response stream agar bisa di-download / tampil di img
         return \Storage::disk('local')->response($path);
     }
 }

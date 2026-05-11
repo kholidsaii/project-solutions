@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\AuditLog;
 
@@ -22,10 +23,9 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->firstOrFail();
         
-        // --- PERBAIKAN DI SINI ---
         AuditLog::create([
-            'user_id'     => $user->id, // Gunakan ID (Integer)
-            'user_name'   => $user->name, // Masukkan Nama ke kolom user_name
+            'user_id'     => $user->id,
+            'user_name'   => $user->name,
             'action'      => 'LOGIN',
             'description' => "User " . $user->name . " masuk ke sistem",
             'ip_address'  => $request->ip()
@@ -46,82 +46,96 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        // 1. Validasi semua data yang masuk
-        $data = $request->validate([
+        $request->validate([
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
             'role' => 'required',
             'company_id' => 'nullable|exists:companies,id',
-            'position' => 'nullable|string',
-            'phone' => 'nullable|string|max:20',
-            'hourly_rate' => 'nullable|numeric',
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
         ]);
 
-        // 2. Logika untuk memproses file gambar Avatar
-        $avatarPath = null; // Default kosong jika tidak ada upload
-        if ($request->hasFile('avatar')) {
-            // Simpan file ke storage 'public_uploads' di dalam folder 'avatars'
-            $avatarPath = $request->file('avatar')->store('avatars', 'public_uploads');
+        try {
+            DB::beginTransaction();
+
+            $avatarPath = null;
+            if ($request->hasFile('avatar')) {
+                $avatarPath = $request->file('avatar')->store('avatars', 'public_uploads');
+            }
+
+            // Simpan User
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => bcrypt($request->password),
+                'role' => $request->role,
+                'company_id' => $request->company_id, 
+                'position' => $request->position,      
+                'phone' => $request->phone,            
+                'address' => $request->address,            
+                'hourly_rate' => $request->hourly_rate,
+                'avatar_url' => $avatarPath,
+                'facebook' => $request->facebook,
+                'twitter' => $request->twitter,
+                'instagram' => $request->instagram,
+                'linkedin' => $request->linkedin
+            ]);
+
+            // Simpan Bank jika diisi
+            if ($request->bank_name && $request->account_number) {
+                DB::table('finance_banks')->insert([
+                    'user_id' => $user->id,
+                    'bank_name' => $request->bank_name,
+                    'account_name' => $request->account_name ?: $user->name,
+                    'account_number' => $request->account_number,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            AuditLog::create([
+                'user_id'     => $user->id,
+                'user_name'   => $user->name,
+                'action'      => 'REGISTER',
+                'description' => "Mendaftarkan personel baru: " . $user->name,
+                'ip_address'  => $request->ip()
+            ]);
+
+            DB::commit();
+            return response()->json(['message' => 'Personel berhasil didaftarkan!', 'user' => $user], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Gagal mendaftar: ' . $e->getMessage()], 500);
         }
-
-        // 3. Simpan data user ke database
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => bcrypt($data['password']),
-            'role' => $data['role'],
-            'company_id' => $request->company_id, 
-            'position' => $request->position,      
-            'phone' => $request->phone,            
-            'hourly_rate' => $request->hourly_rate,
-            'avatar_url' => $avatarPath // Sekarang variabel ini sudah terdefinisi!
-        ]);
-
-        // 4. Catat ke Audit Log agar aktivitas terlacak
-        \App\Models\AuditLog::create([
-            'user_id'     => $user->id,
-            'user_name'   => $user->name,
-            'action'      => 'REGISTER',
-            'description' => "Mendaftarkan user baru: " . $user->name,
-            'ip_address'  => $request->ip()
-        ]);
-
-        // 5. Kirim respon sukses ke Vue
-        return response()->json([
-            'message' => 'User berhasil didaftarkan!',
-            'user' => $user
-        ], 201);
     }   
     
-    
-    // Ambil semua daftar user untuk halaman Teamwork (DENGAN FILTER & PAGINATION)
     public function index(Request $request) 
     {
         try {
-            // Mulai query dasar
-            // PERBAIKAN: Tambahkan 'phone' dan 'hourly_rate' di dalam fungsi select() di bawah ini:
-            $query = User::select('id', 'name', 'email', 'role', 'company_id', 'position', 'phone', 'hourly_rate','avatar_url', 'created_at')
-                         ->orderBy('created_at', 'desc');
+            // PERBAIKAN: Menambahkan kolom social media (facebook, twitter, dll) di query Select
+            $query = User::leftJoin('finance_banks', 'users.id', '=', 'finance_banks.user_id')
+                        ->select(
+                            'users.id', 'users.name', 'users.email', 'users.role', 'users.company_id', 
+                            'users.position', 'users.phone', 'users.address', 'users.hourly_rate', 
+                            'users.avatar_url', 'users.created_at',
+                            'users.facebook', 'users.twitter', 'users.instagram', 'users.linkedin',
+                            'finance_banks.bank_name', 'finance_banks.account_name', 'finance_banks.account_number'
+                        )
+                        ->orderBy('users.created_at', 'desc');
 
-            // --- LOGIKA FILTERING (GLOBAL KEYWORD MATCHING) ---
-            // Jika Vue mengirimkan parameter '?tag_search=...'
             if ($request->filled('tag_search')) {
                 $keyword = $request->tag_search;
-                
                 $query->where(function($q) use ($keyword) {
-                    // Gunakan ILIKE (khusus PostgreSQL) agar pencarian mengabaikan huruf besar/kecil
-                    $q->where('role', 'ILIKE', "%{$keyword}%")
-                      ->orWhere('position', 'ILIKE', "%{$keyword}%")
-                      ->orWhere('name', 'ILIKE', "%{$keyword}%");
+                    $q->where('users.role', 'ILIKE', "%{$keyword}%")
+                    ->orWhere('users.position', 'ILIKE', "%{$keyword}%")
+                    ->orWhere('users.name', 'ILIKE', "%{$keyword}%")
+                    // TAMBAHKAN BARIS INI AGAR BISA MENCARI BERDASARKAN EMAIL
+                    ->orWhere('users.email', 'ILIKE', "%{$keyword}%"); 
                 });
             }
 
-            // --- PAGINATION ---
-            // Ganti ->get() menjadi ->paginate(12) agar data diload per 12 baris.
-            $users = $query->paginate(6);
-
+            $users = $query->paginate(20); // Sengaja dinaikkan paginasinya agar di Dashboard tampil semua
             return response()->json($users, 200);
 
         } catch (\Exception $e) {
@@ -129,26 +143,20 @@ class AuthController extends Controller
         }
     }
 
-    // Update Data Member / Personnel
     public function update(Request $request, $id)
     {
         try {
+            DB::beginTransaction();
             $user = User::find($id);
 
-            if (!$user) {
-                return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
-            }
+            if (!$user) return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
 
             $request->validate([
                 'name'  => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $id,
-                'role'  => 'nullable|string',
-                'phone' => 'nullable|string|max:20',
-                'hourly_rate' => 'nullable|numeric',
-                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048' // Validasi gambar
+                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
             ]);
 
-            // Siapkan data yang akan diupdate
             $dataToUpdate = [
                 'name'       => $request->name,
                 'email'      => $request->email,
@@ -156,63 +164,82 @@ class AuthController extends Controller
                 'company_id' => $request->company_id ?: null,
                 'role'       => $request->role ?: $user->role,
                 'phone'      => $request->phone,
-                'hourly_rate'=> $request->hourly_rate
+                'address'    => $request->address,
+                'hourly_rate'=> $request->hourly_rate,
+                'facebook'   => $request->facebook,
+                'twitter'    => $request->twitter,
+                'instagram'  => $request->instagram,
+                'linkedin'   => $request->linkedin
             ];
 
-            // Jika ada upload avatar baru, simpan dan masukkan ke array update
+            if ($request->filled('password')) {
+                $dataToUpdate['password'] = bcrypt($request->password);
+            }
+
             if ($request->hasFile('avatar')) {
                 $dataToUpdate['avatar_url'] = $request->file('avatar')->store('avatars', 'public_uploads');
             }
 
             $user->update($dataToUpdate);
 
-            // ... sisa kode audit log biarkan seperti aslinya ...
+            // Update atau Create Rekening Bank
+            if ($request->bank_name && $request->account_number) {
+                DB::table('finance_banks')->updateOrInsert(
+                    ['user_id' => $user->id],
+                    [
+                        'bank_name' => $request->bank_name,
+                        'account_name' => $request->account_name ?: $user->name,
+                        'account_number' => $request->account_number,
+                        'updated_at' => now()
+                    ]
+                );
+            }
 
+            AuditLog::create([
+                'user_id'     => Auth::id(),
+                'user_name'   => Auth::user()->name,
+                'action'      => 'UPDATE_USER',
+                'description' => "Memperbarui data personel: " . $user->name,
+                'ip_address'  => $request->ip()
+            ]);
+
+            DB::commit();
             return response()->json(['message' => 'Data personel berhasil diperbarui!'], 200);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json(['error' => 'Gagal memperbarui data: ' . $e->getMessage()], 500);
         }
     }
 
-    // 3. Hapus Member Team
     public function destroy(Request $request, $id)
     {
         try {
-            // Cari user (Akan otomatis lari ke catch ModelNotFoundException jika ID tidak ada)
+            DB::beginTransaction();
             $user = User::findOrFail($id);
-            
-            // Simpan nama sebelum dihapus untuk log
             $userName = $user->name;
 
-            // Eksekusi penghapusan
+            // Hapus rekening bank terkait terlebih dahulu
+            DB::table('finance_banks')->where('user_id', $id)->delete();
             $user->delete();
 
-            // CATAT LOG PENGHAPUSAN (Letakkan setelah delete berhasil agar log valid)
             AuditLog::create([
                 'user_id'     => Auth::id(),
                 'user_name'   => Auth::user()->name,
                 'action'      => 'DELETE_USER',
-                'description' => "Menghapus user member: {$userName}",
+                'description' => "Menghapus personel: {$userName}",
                 'ip_address'  => $request->ip()
             ]);
 
+            DB::commit();
             return response()->json(['message' => 'User berhasil dihapus!'], 200);
 
         } catch (\Illuminate\Database\QueryException $e) {
-            // Tangkap error jika user masih terikat dengan tabel lain (seperti kasbon/team_finances)
-            return response()->json([
-                'error' => 'Tidak dapat menghapus personel karena masih memiliki data transaksi/kasbon terkait.'
-            ], 500);
-            
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            // Tangkap error jika ID user sudah tidak ada di database
-            return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
-            
+            DB::rollBack();
+            return response()->json(['error' => 'Tidak dapat menghapus personel karena masih memiliki data transaksi/kasbon terkait.'], 500);
         } catch (\Exception $e) {
-            // Tangkap error umum lainnya
+            DB::rollBack();
             return response()->json(['error' => 'Gagal menghapus data: ' . $e->getMessage()], 500);
         }
     }
-    // ... sisanya pastikan user_id dan user_name diisi di create log ...
 }

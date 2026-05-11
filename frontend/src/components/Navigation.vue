@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+// import { useRouter } from 'vue-router';
 
-const router = useRouter();
+// const router = useRouter();
 
 // Fungsi logout jika masih diperlukan di tempat lain (atau bisa dihapus jika pindah ke Dashboard)
 // const logout = () => {

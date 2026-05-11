@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 // Fungsi logout jika masih diperlukan di tempat lain (atau bisa dihapus jika pindah ke Dashboard)
-const logout = () => {
-  localStorage.clear();
-  router.push('/login');
-};
+// const logout = () => {
+//   localStorage.clear();
+//   router.push('/login');
+// };
+// matikan dulu mil anjg
 </script>
 
 <template>

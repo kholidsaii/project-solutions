@@ -68,10 +68,6 @@ const teamworkForm = ref<TeamworkForm>({
 // ==========================================
 // 2. HELPER & FORMATTING
 // ==========================================
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
-};
-
 const getImageUrl = (path: string | null): string | undefined => {
   if (!path) return undefined;
   if (path.startsWith('data:') || path.startsWith('http')) return path;

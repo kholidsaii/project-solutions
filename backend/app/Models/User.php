@@ -33,6 +33,8 @@ class User extends Authenticatable
         'twitter',
         'instagram',
         'linkedin',
+        'cover_url',
+        'cover_image',
     ];
 
     /**

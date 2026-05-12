@@ -63,6 +63,11 @@ class AuthController extends Controller
                 $avatarPath = $request->file('avatar')->store('avatars', 'public_uploads');
             }
 
+            $coverPath = null;
+            if ($request->hasFile('cover_image')) {
+                $coverPath = $request->file('cover_image')->store('coverss', 'public_uploads');
+            }
+
             // Simpan User
             $user = User::create([
                 'name' => $request->name,
@@ -78,7 +83,9 @@ class AuthController extends Controller
                 'facebook' => $request->facebook,
                 'twitter' => $request->twitter,
                 'instagram' => $request->instagram,
-                'linkedin' => $request->linkedin
+                'linkedin' => $request->linkedin,
+                'cover_url' => $request->cover_url, // Preset
+                'cover_image' => $coverPath         // File Upload
             ]);
 
             // Simpan Bank jika diisi
@@ -113,13 +120,13 @@ class AuthController extends Controller
     public function index(Request $request) 
     {
         try {
-            // PERBAIKAN: Menambahkan kolom social media (facebook, twitter, dll) di query Select
             $query = User::leftJoin('finance_banks', 'users.id', '=', 'finance_banks.user_id')
                         ->select(
                             'users.id', 'users.name', 'users.email', 'users.role', 'users.company_id', 
                             'users.position', 'users.phone', 'users.address', 'users.hourly_rate', 
                             'users.avatar_url', 'users.created_at',
                             'users.facebook', 'users.twitter', 'users.instagram', 'users.linkedin',
+                            'users.cover_url', 'users.cover_image', // <--- Pastikan dua kolom ini ada
                             'finance_banks.bank_name', 'finance_banks.account_name', 'finance_banks.account_number'
                         )
                         ->orderBy('users.created_at', 'desc');
@@ -130,16 +137,13 @@ class AuthController extends Controller
                     $q->where('users.role', 'ILIKE', "%{$keyword}%")
                     ->orWhere('users.position', 'ILIKE', "%{$keyword}%")
                     ->orWhere('users.name', 'ILIKE', "%{$keyword}%")
-                    // TAMBAHKAN BARIS INI AGAR BISA MENCARI BERDASARKAN EMAIL
                     ->orWhere('users.email', 'ILIKE', "%{$keyword}%"); 
                 });
             }
 
-            $users = $query->paginate(20); // Sengaja dinaikkan paginasinya agar di Dashboard tampil semua
-            return response()->json($users, 200);
-
+            return response()->json($query->paginate(20), 200);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Gagal mengambil data user: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Gagal: ' . $e->getMessage()], 500);
         }
     }
 
@@ -149,40 +153,45 @@ class AuthController extends Controller
             DB::beginTransaction();
             $user = User::find($id);
 
-            if (!$user) return response()->json(['error' => 'Data personel tidak ditemukan.'], 404);
+            if (!$user) return response()->json(['error' => 'Data tidak ditemukan.'], 404);
 
             $request->validate([
                 'name'  => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $id,
-                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
+                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
+                'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048' 
             ]);
 
-            $dataToUpdate = [
-                'name'       => $request->name,
-                'email'      => $request->email,
-                'position'   => $request->position,
-                'company_id' => $request->company_id ?: null,
-                'role'       => $request->role ?: $user->role,
-                'phone'      => $request->phone,
-                'address'    => $request->address,
-                'hourly_rate'=> $request->hourly_rate,
-                'facebook'   => $request->facebook,
-                'twitter'    => $request->twitter,
-                'instagram'  => $request->instagram,
-                'linkedin'   => $request->linkedin
-            ];
+            $data = $request->only([
+                'name', 'email', 'position', 'company_id', 'role', 
+                'phone', 'address', 'hourly_rate', 
+                'facebook', 'twitter', 'instagram', 'linkedin'
+            ]);
 
-            if ($request->filled('password')) {
-                $dataToUpdate['password'] = bcrypt($request->password);
+            // Logika Cover: Jika pilih preset
+            if ($request->filled('cover_url')) {
+                $data['cover_url'] = $request->cover_url;
+                $data['cover_image'] = null; // Hapus file lama agar preset aktif
+            }
+
+            // Logika Cover: Jika upload file baru
+            if ($request->hasFile('cover_image')) {
+                $data['cover_image'] = $request->file('cover_image')->store('covers', 'public_uploads');
+                $data['cover_url'] = null; // Hapus preset agar file aktif
             }
 
             if ($request->hasFile('avatar')) {
-                $dataToUpdate['avatar_url'] = $request->file('avatar')->store('avatars', 'public_uploads');
+                $data['avatar_url'] = $request->file('avatar')->store('avatars', 'public_uploads');
             }
 
-            $user->update($dataToUpdate);
+            if ($request->filled('password')) {
+                $data['password'] = bcrypt($request->password);
+            }
 
-            // Update atau Create Rekening Bank
+            // Karena sudah daftar di $fillable, kita bisa pakai Eloquent dengan aman
+            $user->update($data);
+
+            // Update Bank...
             if ($request->bank_name && $request->account_number) {
                 DB::table('finance_banks')->updateOrInsert(
                     ['user_id' => $user->id],
@@ -195,20 +204,12 @@ class AuthController extends Controller
                 );
             }
 
-            AuditLog::create([
-                'user_id'     => Auth::id(),
-                'user_name'   => Auth::user()->name,
-                'action'      => 'UPDATE_USER',
-                'description' => "Memperbarui data personel: " . $user->name,
-                'ip_address'  => $request->ip()
-            ]);
-
             DB::commit();
             return response()->json(['message' => 'Data personel berhasil diperbarui!'], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Gagal memperbarui data: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Gagal: ' . $e->getMessage()], 500);
         }
     }
 

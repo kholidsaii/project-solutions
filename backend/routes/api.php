@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/project-documents', [ProjectController::class, 'indexDocuments']);
     Route::post('/project-documents', [ProjectController::class, 'storeDocuments']);
+    Route::put('/project-documents/{id}', [ProjectController::class, 'updateDocuments']); // <-- Tambahkan Ini
     Route::delete('/project-documents/{id}', [ProjectController::class, 'destroyDocuments']);
 
     Route::post('/project-supports', [ProjectController::class, 'storeSupport']);

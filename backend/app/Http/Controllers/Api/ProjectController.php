@@ -71,7 +71,22 @@ class ProjectController extends Controller
                 });
             }
 
-            $projects = $query->orderBy('projects.created_at', 'desc')->get();
+            // TAMBAHAN: Fitur Search untuk Project
+            if ($request->filled('search')) {
+                $keyword = $request->search;
+                $query->where(function($q) use ($keyword) {
+                    $q->where('projects.project_title', 'ILIKE', "%{$keyword}%")
+                      ->orWhere('projects.client_name', 'ILIKE', "%{$keyword}%");
+                });
+            }
+
+            // TAMBAHAN: Cek jika ada request pagination (dari Setup.vue)
+            if ($request->has('page')) {
+                $paginator = $query->orderBy('projects.created_at', 'desc')->paginate(5);
+                $projects = $paginator->items();
+            } else {
+                $projects = $query->orderBy('projects.created_at', 'desc')->get();
+            }
 
             $projectCompanies = DB::table('project_companies')
                 ->join('companies', 'project_companies.company_id', '=', 'companies.id')
@@ -79,7 +94,7 @@ class ProjectController extends Controller
                 ->get()
                 ->groupBy('project_id');
 
-            $formatted = $projects->map(function($p) use ($projectCompanies) {
+            $formatted = collect($projects)->map(function($p) use ($projectCompanies) {
                 return [
                     'id' => $p->id,
                     'project_title' => $p->project_title,
@@ -100,6 +115,17 @@ class ProjectController extends Controller
                 ];
             });
 
+            // Kembalikan format Laravel Paginator beserta meta datanya
+            if ($request->has('page')) {
+                return response()->json([
+                    'current_page' => $paginator->currentPage(),
+                    'data' => $formatted,
+                    'last_page' => $paginator->lastPage(),
+                    'total' => $paginator->total()
+                ], 200);
+            }
+
+            // Jika tidak ada parameter page, kembalikan array biasa
             return response()->json($formatted, 200);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -287,12 +313,13 @@ class ProjectController extends Controller
             'task_name' => 'required',
             'work_order_id' => 'nullable|exists:work_orders,id',
             'location_id' => 'nullable|exists:work_locations,id',
-            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx,zip,rar|max:20480', 
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx|max:20480', 
         ]);
 
         try {
             DB::beginTransaction();
 
+            // 1. Simpan data Activity / Task
             $taskId = DB::table('project_tasks')->insertGetId([
                 'project_id'    => $request->project_id,
                 'work_order_id' => $request->work_order_id,
@@ -303,22 +330,25 @@ class ProjectController extends Controller
                 'created_at'    => now()
             ]);
 
-            // UPLOAD FILE SECARA PRIVATE
+            // 2. Upload Dokumen dan tautkan ke Activity
             if ($request->hasFile('document')) {
                 $file = $request->file('document');
                 $originalName = $file->getClientOriginalName();
                 $cleanName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $originalName);
                 $filename = time() . '_' . $cleanName;
-                $path = $file->storeAs('activity_docs', $filename, 'local');
+                
+                // PERBAIKAN: Ubah folder ke 'documents' agar terbaca juga di Global Documents
+                $path = $file->storeAs('documents', $filename, 'local');
 
                 DB::table('activity_documents')->insert([
                     'activity_id' => $taskId,
                     'user_id'     => Auth::id(),
-                    'title'       => 'Attachment: ' . $request->task_name,
+                    'title'       => 'Activity: ' . $request->task_name,
                     'file_path'   => $path,
                     'file_type'   => $file->getClientOriginalExtension(),
                     'file_size'   => $file->getSize(),
-                    'created_at'  => now()
+                    'created_at'  => now(),
+                    'updated_at'  => now() // PERBAIKAN: Tambahkan updated_at
                 ]);
             }
 
@@ -454,11 +484,10 @@ class ProjectController extends Controller
         if (!$table) return response()->json(['message' => 'Invalid type'], 400);
 
         try {
+            // Hapus logika pengisian icon dan client_name
             $data = ['name' => $request->name, 'created_at' => now()];
 
             if ($type === 'categories') {
-                $data['icon'] = $request->icon ?? 'fas fa-folder';
-                $data['client_name'] = $request->client_name ?? '-';
                 if ($request->hasFile('image')) {
                     $data['image_path'] = $request->file('image')->store('categories', 'public_uploads'); 
                 }
@@ -471,7 +500,9 @@ class ProjectController extends Controller
 
             DB::table($table)->insert($data);
             return response()->json(['message' => 'Berhasil disimpan']);
-        } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => $e->getMessage()], 500); 
+        }
     }
 
     public function updateMaster(Request $request, $type, $id)
@@ -482,6 +513,7 @@ class ProjectController extends Controller
         try {
             $data = ['name' => $request->name, 'updated_at' => now()];
             
+            // Logika icon dan client_name di sini juga sudah dihapus
             if ($type === 'locations') {
                 $data['address'] = $request->address;
                 $data['maps'] = $request->maps;
@@ -489,7 +521,9 @@ class ProjectController extends Controller
 
             DB::table($table)->where('id', $id)->update($data);
             return response()->json(['message' => 'Master ' . $type . ' berhasil diupdate!']);
-        } catch (\Exception $e) { return response()->json(['error' => $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => $e->getMessage()], 500); 
+        }
     }
 
     public function deleteMaster($type, $id)
@@ -503,10 +537,28 @@ class ProjectController extends Controller
         } catch (\Exception $e) { return response()->json(['error' => 'Gagal menghapus data'], 500); }
     }
 
-    public function getMasterDataByType($type) {
+    public function getMasterDataByType(Request $request, $type) 
+    {
         $table = $this->getTableName($type);
         if (!$table) return response()->json([], 400);
-        return response()->json(DB::table($table)->orderBy('id', 'asc')->get());
+
+        $query = DB::table($table);
+
+        // 1. Fitur Search Master Data
+        if ($request->filled('search')) {
+            $keyword = $request->search;
+            $query->where('name', 'ILIKE', "%{$keyword}%");
+        }
+
+        // 2. Fitur Pagination
+        if ($request->has('page')) {
+            // Mengurutkan dari yang terbaru jika di-paginate
+            $data = $query->orderBy('id', 'desc')->paginate(5);
+            return response()->json($data);
+        }
+
+        // Jika tidak ada request page (misal untuk dropdown form), kembalikan semua data
+        return response()->json($query->orderBy('id', 'asc')->get());
     }
 
     public function updateProjectDetail(Request $request, $id)
@@ -548,7 +600,7 @@ class ProjectController extends Controller
         $request->validate([
             'task_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx,zip,rar|max:20480',
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx|max:20480',
         ]);
 
         try {
@@ -757,17 +809,44 @@ class ProjectController extends Controller
     {
         $query = DB::table('activity_documents')
             ->leftJoin('users', 'activity_documents.user_id', '=', 'users.id')
-            ->select('activity_documents.*', 'users.name as uploader_name');
-        if ($request->has('activity_id')) $query->where('activity_id', $request->activity_id);
-        return response()->json($query->orderBy('created_at', 'desc')->get());
+            ->select(
+                'activity_documents.*', 
+                'users.name as uploader_name'
+            );
+
+        // 1. Filter Search (Berdasarkan Judul, Nama File, atau Uploader)
+        if ($request->filled('search')) {
+            $q = $request->search;
+            $query->where(function($sub) use ($q) {
+                $sub->where('activity_documents.title', 'ILIKE', "%{$q}%")
+                    ->orWhere('activity_documents.file_path', 'ILIKE', "%{$q}%")
+                    ->orWhere('users.name', 'ILIKE', "%{$q}%");
+            });
+        }
+
+        // 2. Filter Tag
+        if ($request->filled('tag_id') && $request->tag_id !== 'all') {
+            $query->where('activity_documents.tag_id', $request->tag_id);
+        }
+
+        // 3. Filter Extension (Photo, Video, PDF, dll)
+        if ($request->filled('ext') && $request->ext !== 'all') {
+            $query->where('activity_documents.file_type', 'ILIKE', $request->ext);
+        }
+
+        // Jalankan Pagination (Menampilkan 10 data per halaman)
+        $documents = $query->orderBy('activity_documents.created_at', 'desc')->paginate(5);
+
+        return response()->json($documents);
     }
 
+    // --- 1. SIMPAN DOKUMEN (PRIVATE) ---
     public function storeDocuments(Request $request)
     {
         $request->validate([
-            'activity_id' => 'required|integer', 
+            'activity_id' => 'nullable|integer', 
             'title'       => 'required|string|max:255', 
-            'document'    => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,zip,rar|max:20480'
+            'document'    => 'required|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx|max:20480'
         ]);
 
         try {
@@ -776,48 +855,87 @@ class ProjectController extends Controller
             $cleanName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $originalName);
             $filename = time() . '_' . $cleanName;
             
+            // PERBAIKAN: Simpan ke storage 'local' agar file bersifat PRIVATE dan aman
             $path = $file->storeAs('documents', $filename, 'local');
             
             DB::table('activity_documents')->insert([
-                'activity_id' => $request->activity_id, 
+                'activity_id' => $request->activity_id ?: null,
                 'user_id'     => Auth::id(), 
                 'title'       => $request->title,
                 'file_path'   => $path, 
                 'file_type'   => $file->getClientOriginalExtension(), 
                 'file_size'   => $file->getSize(), 
-                'created_at'  => now()
+                'created_at'  => now(),
+                'updated_at'  => now()
             ]);
             
             return response()->json(['message' => 'Dokumen berhasil diunggah!'], 201);
         } catch (\Exception $e) { 
-            return response()->json(['error' => 'Gagal mengunggah dokumen: ' . $e->getMessage()], 500); 
+            return response()->json(['error' => 'Gagal mengunggah: ' . $e->getMessage()], 500); 
         }
     }
 
+    // --- 2. UPDATE DOKUMEN (HAPUS FILE LAMA JIKA ADA YANG BARU) ---
+    public function updateDocuments(Request $request, $id)
+    {
+        $request->validate([
+            'activity_id' => 'nullable|integer',
+            'title'       => 'required|string|max:255',
+            'document'    => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi,pdf,doc,docx,xls,xlsx|max:20480'
+        ]);
+
+        try {
+            $doc = DB::table('activity_documents')->where('id', $id)->first();
+            if (!$doc) return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
+
+            $data = [
+                'activity_id' => $request->activity_id ?: null,
+                'title'       => $request->title,
+                'updated_at'  => now()
+            ];
+
+            // Jika User mengunggah file baru, hapus file lama di storage private
+            if ($request->hasFile('document')) {
+                if ($doc->file_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($doc->file_path)) {
+                    \Illuminate\Support\Facades\Storage::disk('local')->delete($doc->file_path);
+                }
+
+                // Simpan file baru
+                $file = $request->file('document');
+                $originalName = $file->getClientOriginalName();
+                $cleanName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $originalName);
+                $filename = time() . '_' . $cleanName;
+                
+                $path = $file->storeAs('documents', $filename, 'local'); // PRIVATE
+
+                $data['file_path'] = $path;
+                $data['file_type'] = $file->getClientOriginalExtension();
+                $data['file_size'] = $file->getSize();
+            }
+
+            DB::table('activity_documents')->where('id', $id)->update($data);
+
+            return response()->json(['message' => 'Dokumen berhasil diperbarui!']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal memperbarui: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // --- 3. HAPUS DOKUMEN (HAPUS FILE FISIKNYA JUGA) ---
     public function destroyDocuments($id)
     {
         try {
             $doc = DB::table('activity_documents')->where('id', $id)->first();
             if (!$doc) return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
 
-            $activityId = $doc->activity_id;
-
+            // PERBAIKAN: Hapus fisik file di storage private
             if ($doc->file_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($doc->file_path)) {
                 \Illuminate\Support\Facades\Storage::disk('local')->delete($doc->file_path);
             }
 
             DB::table('activity_documents')->where('id', $id)->delete();
-
-            if ($activityId) {
-                $task = DB::table('project_tasks')->where('id', $activityId)->first();
-                if ($task) {
-                    $projectId = $task->project_id;
-                    DB::table('project_tasks')->where('id', $activityId)->delete();
-                    $this->updateProjectProgress($projectId);
-                }
-            }
             
-            return response()->json(['message' => 'Dokumen dan Card Aktivitas berhasil dihapus!']);
+            return response()->json(['message' => 'Dokumen dan file berhasil dihapus permanen!']);
         } catch (\Exception $e) { 
             return response()->json(['error' => 'Gagal menghapus dokumen: ' . $e->getMessage()], 500); 
         }
@@ -999,18 +1117,41 @@ class ProjectController extends Controller
     public function storeCompany(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255', 'legal_name' => 'required|string|max:255',
-            'email' => 'nullable|email', 'phone' => 'nullable|string|max:20', 'logo' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
+            'name' => 'required|string|max:255', 
+            'legal_name' => 'required|string|max:255',
+            'email' => 'nullable|email', 
+            'phone' => 'nullable|string|max:20', 
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048' // Validasi untuk file cover
         ]);
 
         try {
+            // Handle Upload Logo
             $logoPath = $request->hasFile('logo') ? $request->file('logo')->store('companies', 'public_uploads') : null;
+            
+            // Handle Upload Cover Image (Jika user upload gambar sendiri)
+            $coverPath = $request->hasFile('cover_image') ? $request->file('cover_image')->store('covers', 'public_uploads') : null;
+
             DB::table('companies')->insert([
-                'name' => $request->name, 'legal_name' => $request->legal_name, 'email' => $request->email,
-                'phone' => $request->phone, 'address' => $request->address, 'description' => $request->description, 'logo_path' => $logoPath
+                'name' => $request->name, 
+                'legal_name' => $request->legal_name, 
+                'email' => $request->email,
+                'phone' => $request->phone, 
+                'address' => $request->address, 
+                'description' => $request->description, 
+                'logo_path' => $logoPath,
+                'facebook' => $request->facebook,
+                'twitter' => $request->twitter,
+                'instagram' => $request->instagram,
+                'linkedin' => $request->linkedin,
+                'cover_url' => $request->cover_url, // Jika user pilih preset gambar
+                'cover_image' => $coverPath         // Jika user upload file
             ]);
+            
             return response()->json(['message' => 'Organization berhasil ditambahkan!'], 201);
-        } catch (\Exception $e) { return response()->json(['error' => 'Gagal menambahkan Organization: ' . $e->getMessage()], 500); }
+        } catch (\Exception $e) { 
+            return response()->json(['error' => 'Gagal menambahkan Organization: ' . $e->getMessage()], 500); 
+        }
     }
 
     public function updateCompany(Request $request, $id)
@@ -1019,7 +1160,8 @@ class ProjectController extends Controller
             'name' => 'required|string|max:255', 
             'email' => 'nullable|email', 
             'phone' => 'nullable|string|max:20', 
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048'
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048' 
         ]);
 
         try {
@@ -1029,11 +1171,26 @@ class ProjectController extends Controller
                 'address' => $request->address, 
                 'email' => $request->email, 
                 'phone' => $request->phone, 
-                'description' => $request->description
+                'description' => $request->description,
+                'facebook' => $request->facebook,
+                'twitter' => $request->twitter,
+                'instagram' => $request->instagram,
+                'linkedin' => $request->linkedin,
             ];
+
+            // PERBAIKAN: Gunakan filled() dan pastikan cover_image diset null
+            if ($request->filled('cover_url')) {
+                $data['cover_url'] = $request->cover_url;
+                $data['cover_image'] = null; 
+            }
             
             if ($request->hasFile('logo')) {
                 $data['logo_path'] = $request->file('logo')->store('companies', 'public_uploads');
+            }
+
+            if ($request->hasFile('cover_image')) {
+                $data['cover_image'] = $request->file('cover_image')->store('covers', 'public_uploads');
+                $data['cover_url'] = null; 
             }
 
             DB::table('companies')->where('id', $id)->update($data);

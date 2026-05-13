@@ -216,17 +216,38 @@ class ProjectController extends Controller
             'remaining_budget' => (float)($project->contract_value - ($totalPurchasing + $totalWorkOrder))
         ];
 
+        // 1. Ambil data perusahaan yang terhubung
         $project->companies = DB::table('project_companies')
             ->join('companies', 'project_companies.company_id', '=', 'companies.id')
             ->where('project_companies.project_id', $id)
-            ->select('companies.id', 'companies.name')
+            ->select(
+                'companies.id', 
+                'companies.name',
+                'companies.logo_path',   // Tambahan untuk memanggil logo
+                'companies.cover_image', // Tambahan untuk memanggil cover upload
+                'companies.cover_url'    // Tambahan untuk memanggil cover preset
+            )
             ->get();
+            
+        // --- BAGIAN YANG DIUBAH: Mengambil member berdasarkan PT yang terhubung ---
+        $companyIds = DB::table('project_companies')
+            ->where('project_id', $id)
+            ->pluck('company_id');
 
-        $project->team = DB::table('project_teams')
-            ->join('users', 'project_teams.user_id', '=', 'users.id')
-            ->where('project_teams.project_id', $id)
-            ->select('users.id', 'users.name', 'users.position', 'project_teams.role')
+        $project->team = DB::table('users')
+            ->leftJoin('companies', 'users.company_id', '=', 'companies.id')
+            ->whereIn('users.company_id', $companyIds)
+            ->select(
+                'users.id', 
+                'users.name', 
+                'users.position', 
+                'users.role', 
+                'users.avatar_url',
+                'users.company_id',
+                'companies.name as company_name'
+            )
             ->get();
+        // --------------------------------------------------------------------------
 
         foreach ($project->team as $member) {
             $member->tasks_count = DB::table('project_tasks')

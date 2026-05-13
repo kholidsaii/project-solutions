@@ -1,22 +1,35 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import api from '../api/axios'; // Pastikan path axios-mu benar
+import api from '../api/axios';
 
 // Import semua components
-import Overview from '../components/project/detail/Overview.vue';
-import Activity from '../components/project/detail/Activity.vue';
-import Location from '../components/project/detail/Location.vue';
-import Workorder from '../components/project/detail/Workorder.vue';
-import Product from '../components/project/detail/Product.vue';
-import Teamwork from '../components/project/detail/Teamwork.vue'; 
-import Financial from '../components/project/detail/Financial.vue';
-import Accounting from '../components/project/detail/Accounting.vue';
+import Overview from '../components/project/projectdetail/Overview.vue';
+import Activity from '../components/project/projectdetail/Activity.vue';
+import Location from '../components/project/projectdetail/Location.vue';
+import Workorder from '../components/project/projectdetail/Workorder.vue';
+import Teamwork from '../components/project/projectdetail/Teamwork.vue'; 
+import Financial from '../components/project/projectdetail/Transaksi.vue';
+import Accounting from '../components/project/projectdetail/Accounting.vue';
+import Banking from '../components/project/projectdetail/Banking.vue';
+import Document from '../components/project/projectdetail/Document.vue';
+import Setup from '../components/project/projectdetail/Setup.vue';
 
 const route = useRoute();
 const subTab = ref('overview');
-// Tab disesuaikan (dikurangi document, support, marketing, purchasing)
-const availableTabs = ['Overview', 'Workorder', 'Activity', 'Location', 'Product', 'Teamwork', 'Financial', 'Accounting'];
+
+// 1. SETUP DIHAPUS DARI ARRAY TAB BAWAH
+const availableTabs = [
+  { name: 'Overview', value: 'overview', icon: 'fas fa-chart-pie' },
+  { name: 'Workorder', value: 'workorder', icon: 'fas fa-clipboard-list' },
+  { name: 'Activity', value: 'activity', icon: 'fas fa-tasks' },
+  { name: 'Location', value: 'location', icon: 'fas fa-map-marker-alt' },
+  { name: 'Teamwork', value: 'teamwork', icon: 'fas fa-users' },
+  { name: 'Transaksi', value: 'transaksi', icon: 'fas fa-exchange-alt' },
+  { name: 'Accounting', value: 'accounting', icon: 'fas fa-book' },
+  { name: 'Banking', value: 'banking', icon: 'fas fa-university' },
+  { name: 'Document', value: 'document', icon: 'fas fa-folder-open' }
+];
 
 const project = ref<any>({});
 const allCompanies = ref<any[]>([]);
@@ -45,88 +58,118 @@ onMounted(async () => {
   } catch (e) { console.error(e); }
 });
 </script>
+
 <template>
-  <div class="min-h-screen bg-[#F8FAFC] pb-20 md:pl-20 font-sans text-slate-900">
-    <div class="max-w-7xl mx-auto px-6 mt-8 space-y-4">   
-      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <div class="p-4 flex items-center justify-between border-b border-slate-100">
-          <div class="flex items-center gap-4">
-  
-            <div class="w-12 h-12 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden">
-              <img v-if="project?.logo" 
-                  :src="`http://localhost:8000/uploads/${project.logo}`" 
-                  class="w-full h-full object-cover" />
-                  
-              <img v-else 
-                  src="/logo-kerjapro.png" 
-                  class="max-w-full max-h-full object-contain p-2" />
+  <div class="min-h-screen bg-[#F8FAFC] pb-20 md:pl-20 font-sans text-slate-900 overflow-x-hidden">
+    
+    <div class="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8 space-y-5 min-w-0">   
+      
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm w-full overflow-hidden min-w-0">
+        <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 min-w-0">
+          <div class="flex items-center gap-4 min-w-0 flex-1">
+            <div class="w-12 h-12 shrink-0 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden">
+              <img v-if="project?.logo" :src="`http://localhost:8000/uploads/${project.logo}`" class="w-full h-full object-cover" />
+              <img v-else src="/logo-kerjapro.png" class="max-w-full max-h-full object-contain p-2" />
             </div>
 
-            <div>
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ID-{{ $route.params.id }}</span>
-                <h2 class="text-sm font-black text-blue-800 uppercase leading-none">{{ project?.project_title || 'Loading...' }}</h2>
+                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest shrink-0">ID-{{ $route.params.id }}</span>
+                <h2 class="text-sm font-black text-slate-800 uppercase leading-none truncate">{{ project?.project_title || 'Loading...' }}</h2>
               </div>
               
-              <p class="text-[10px] font-bold text-slate-600 uppercase mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <p class="text-[10px] font-bold text-slate-500 uppercase mt-1 truncate">
                 <span>PT:</span> 
-                
                 <span class="text-indigo-600 font-black">
                   <template v-if="project?.companies && project.companies.length">
                     {{ project.companies.map((c: any) => c.name).join(', ') }}
                   </template>
-                  <template v-else>
-                    INDEPENDENT
-                  </template>
+                  <template v-else>INDEPENDENT</template>
                 </span> 
-                
-                <span class="text-slate-400 ml-1">| Customer : {{ project?.client_name || '-' }}</span>
+                <span class="text-slate-300 mx-1">|</span> 
+                <span>Customer : {{ project?.client_name || '-' }}</span>
               </p>
             </div>
-            
           </div>
-          <div class="flex items-center gap-3">
-             <button @click="$router.push('/projects')" class="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-2">
-               <i class="fas fa-home"></i> Back
-             </button>
-             <div class="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 font-black text-xs">
-               {{ project?.progress || 0 }} %
+          
+          <div class="flex items-center gap-3 shrink-0">
+             <div class="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 font-black text-xs flex items-center gap-2">
+               <i class="fas fa-chart-line"></i> {{ project?.progress || 0 }} %
              </div>
+             
+             <button @click="subTab = 'setup'" title="Project Setup"
+               class="w-9 h-9 flex items-center justify-center rounded-lg border transition-all"
+               :class="subTab === 'setup' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 border-slate-200'">
+               <i class="fas fa-cog"></i>
+             </button>
           </div>
         </div>
 
-        <div class="bg-slate-50 px-4 py-1.5 flex flex-wrap gap-1 border-b border-slate-100 items-center">
-          <button @click="$router.push('/projects')" class="w-7 h-7 bg-slate-400 text-white rounded-md flex items-center justify-center text-[10px]">
+        <div class="bg-white px-4 py-3 flex gap-3 border-b border-slate-100 items-center w-full min-w-0">
+          <button @click="$router.push('/projects')" class="shrink-0 w-9 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center text-xs transition-colors shadow-sm">
             <i class="fas fa-arrow-left"></i>
           </button>
-          <button v-for="menu in availableTabs" :key="menu"
-            @click="subTab = menu.toLowerCase()"
-            class="px-3 py-1.5 text-[9px] font-black uppercase transition-all"
-            :class="subTab === menu.toLowerCase() ? 'text-blue-800 underline underline-offset-4 decoration-2' : 'text-blue-600 hover:bg-blue-50'">
-            {{ menu }}
-          </button>
+          
+          <div class="flex-1 min-w-0 overflow-x-auto custom-h-scroll pb-2">
+            <div class="flex gap-2 flex-nowrap w-max pr-4">
+              <button v-for="tab in availableTabs" :key="tab.value"
+                @click="subTab = tab.value"
+                class="shrink-0 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all duration-300"
+                :class="subTab === tab.value 
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-[1.02]' 
+                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-indigo-600'">
+                <i :class="tab.icon" class="text-sm"></i> {{ tab.name }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden min-h-100">
-        <div class="flex justify-between items-center px-6 py-3 border-b border-slate-100">
-          <div class="flex items-center gap-3 text-blue-900">
-            <i class="fas fa-th-large text-sm"></i><h3 class="text-xs font-black uppercase tracking-widest">{{ subTab }}</h3>
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm w-full overflow-hidden min-h-[500px] min-w-0">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 min-w-0">
+          <div class="flex items-center gap-3 text-indigo-900 min-w-0">
+            <template v-if="subTab === 'setup'">
+               <i class="fas fa-cog text-lg shrink-0"></i>
+               <h3 class="text-xs font-black uppercase tracking-widest truncate">Project Setup & Settings</h3>
+            </template>
+            <template v-else>
+               <i :class="availableTabs.find(t => t.value === subTab)?.icon" class="text-lg shrink-0"></i>
+               <h3 class="text-xs font-black uppercase tracking-widest truncate">{{ availableTabs.find(t => t.value === subTab)?.name }}</h3>
+            </template>
           </div>
         </div>
 
-        <div class="p-8">
+        <div class="p-4 sm:p-6 lg:p-8 w-full min-w-0 overflow-x-auto">
           <Overview v-if="subTab === 'overview'" :project="project" :masterData="masterData" :allCompanies="allCompanies" @refresh="fetchDetail" />
           <Activity v-if="subTab === 'activity'" :project="project" @refresh="fetchDetail" />
           <Location v-if="subTab === 'location'" :project="project" @refresh="fetchDetail" />
           <Workorder v-if="subTab === 'workorder'" :project="project" @refresh="fetchDetail" />
-          <Product v-if="subTab === 'product'" :project="project" @refresh="fetchDetail" />
           <Teamwork v-if="subTab === 'teamwork'" :project="project" @refresh="fetchDetail" />
-          <Financial v-if="subTab === 'financial'" :project="project" @refresh="fetchDetail" />
+          <Financial v-if="subTab === 'transaksi'" :project="project" @refresh="fetchDetail" />
           <Accounting v-if="subTab === 'accounting'" :project="project" :allCompanies="allCompanies" @refresh="fetchDetail" />
+          <Banking v-if="subTab === 'banking'" :project="project" @refresh="fetchDetail" />
+          <Document v-if="subTab === 'document'" :project="project" @refresh="fetchDetail" />
+          <Setup v-if="subTab === 'setup'" :project="project" @refresh="fetchDetail" />
         </div>
       </div>
+
     </div>
   </div>
 </template>
 
+<style scoped>
+/* Desain Scrollbar Horizontal yang Tipis & Modern */
+.custom-h-scroll::-webkit-scrollbar {
+  height: 4px; /* Sangat tipis agar tidak merusak desain */
+}
+.custom-h-scroll::-webkit-scrollbar-track {
+  background: transparent; 
+}
+.custom-h-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* Warna abu-abu pudar */
+  border-radius: 10px;
+}
+.custom-h-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* Sedikit lebih gelap saat di-hover mouse */
+}
+</style>

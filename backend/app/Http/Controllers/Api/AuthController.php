@@ -213,6 +213,85 @@ class AuthController extends Controller
         }
     }
 
+    public function show($id)
+    {
+        try {
+            // 1. Ambil data dasar User dan nama Perusahaannya
+            $user = DB::table('users')
+                ->leftJoin('companies', 'users.company_id', '=', 'companies.id')
+                // Pastikan users.* terpanggil semua, termasuk company_id
+                ->select('users.*', 'companies.name as pt_owner_name')
+                ->where('users.id', $id)
+                ->first();
+
+            if (!$user) {
+                return response()->json(['message' => 'Personel tidak ditemukan'], 404);
+            }
+
+            // 2. Ambil Project yang sedang/pernah dikerjakan (Relasi MemberWork)
+            // CATATAN: Pastikan tabel relasi di database Anda benar bernama 'project_teams'
+            // Jika beda, silakan ganti menjadi 'project_users' atau 'project_members'
+            try {
+                $user->projects = DB::table('project_teams')
+                    ->join('projects', 'project_teams.project_id', '=', 'projects.id')
+                    ->where('project_teams.user_id', $id)
+                    ->select('projects.*', 'project_teams.role as member_project_role')
+                    ->get();
+            } catch (\Exception $e) {
+                $user->projects = []; // Fallback aman jika tabel belum ada
+            }
+
+            // 3. Ambil Work Orders yang ditugaskan ke user ini
+            try {
+                $user->work_orders = DB::table('work_orders')
+                    ->where('assigned_to', $id)
+                    ->orderBy('id', 'desc')
+                    ->get();
+            } catch (\Exception $e) {
+                $user->work_orders = [];
+            }
+
+            // 4. Ambil Rekening Bank Pribadi (Banking)
+            try {
+                $user->banks = DB::table('finance_banks')
+                    ->where('user_id', $id)
+                    ->get();
+            } catch (\Exception $e) {
+                $user->banks = [];
+            }
+
+            // 5. Ambil Dokumen Personal (Documents)
+            try {
+                $user->documents = DB::table('project_documents')
+                    ->leftJoin('users as uploaders', 'project_documents.user_id', '=', 'uploaders.id')
+                    ->where('project_documents.user_id', $id)
+                    ->select('project_documents.*', 'uploaders.name as uploader_name')
+                    ->get();
+            } catch (\Exception $e) {
+                $user->documents = [];
+            }
+                
+            // 6. Ambil Transaksi terkait (Kasbon/Reimbursement)
+            try {
+                $user->transactions = DB::table('finance_transactions')
+                    ->where('user_id', $id)
+                    ->orderBy('date', 'desc')
+                    ->get();
+            } catch (\Exception $e) {
+                $user->transactions = [];
+            }
+
+            // KUNCI PERBAIKAN: Bungkus response dengan array 'data' agar aman dibaca Vue
+            return response()->json([
+                'message' => 'Data personel berhasil diambil',
+                'data' => $user
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gagal mengambil data: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function destroy(Request $request, $id)
     {
         try {

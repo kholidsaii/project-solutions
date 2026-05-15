@@ -228,7 +228,7 @@ class ProjectController extends Controller
                 'companies.cover_url'    // Tambahan untuk memanggil cover preset
             )
             ->get();
-            
+
         // --- BAGIAN YANG DIUBAH: Mengambil member berdasarkan PT yang terhubung ---
         $companyIds = DB::table('project_companies')
             ->where('project_id', $id)
@@ -813,6 +813,19 @@ class ProjectController extends Controller
         $project = Project::with('companies')->find($id);
         if (!$project) return response()->json(['message' => 'Project not found'], 404);
         return response()->json($project);
+    }
+
+    public function showCompany($id)
+    {
+        try {
+            $company = DB::table('companies')->where('id', $id)->first();
+            if (!$company) {
+                return response()->json(['message' => 'Organization not found'], 404);
+            }
+            return response()->json($company, 200);
+        } catch (\Exception $e) { 
+            return response()->json(['error' => $e->getMessage()], 500); 
+        }
     }
 
     public function storeProduction(Request $request)

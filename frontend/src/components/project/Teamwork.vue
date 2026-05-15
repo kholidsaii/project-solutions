@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '../../api/axios'; 
+
+const router = useRouter(); // <--- 2. INISIALISASI ROUTER
+
+// 3. FUNGSI UNTUK NAVIGASI KE HALAMAN DETAIL
+const viewMemberDetail = (id: number) => {
+  router.push(`/memberdetail/${id}`);
+};
+
+const viewCompanyDetail = (id: number) => {
+  router.push(`/companydetail/${id}`); // Asumsi Anda akan membuat CompanyDetail.vue
+};
 
 // ==========================================
 // 1. INTERFACES & GLOBAL STATE
@@ -354,12 +366,13 @@ onMounted(fetchData);
             <div :class="paginatedOrganizations.length < 3 ? 'flex flex-wrap justify-center gap-6' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start content-start'">
               
               <div v-for="cp in paginatedOrganizations" :key="cp.id" 
+                   @click="viewCompanyDetail(cp.id)"
                    :class="paginatedOrganizations.length < 3 ? 'w-full sm:w-[320px]' : ''" 
-                   class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group">
+                   class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all">
                 
                 <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                    <button @click="handleEditCompany(cp)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-[#4361EE] hover:bg-white"><i class="fas fa-edit text-[10px]"></i></button>
-                    <button @click="handleDeleteCompany(cp.id)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-red-500 hover:bg-white"><i class="fas fa-trash text-[10px]"></i></button>
+                    <button @click.stop="handleEditCompany(cp)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-[#4361EE] hover:bg-white"><i class="fas fa-edit text-[10px]"></i></button>
+                    <button @click.stop="handleDeleteCompany(cp.id)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-red-500 hover:bg-white"><i class="fas fa-trash text-[10px]"></i></button>
                 </div>
 
                 <div class="h-20 w-full bg-slate-100 relative">
@@ -404,12 +417,13 @@ onMounted(fetchData);
             <div :class="filteredMembers.length < 3 ? 'flex flex-wrap justify-center gap-6' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start content-start'">
               
               <div v-for="m in filteredMembers" :key="m.id" 
+                   @click="viewMemberDetail(m.id)"
                    :class="filteredMembers.length < 3 ? 'w-full sm:w-[320px]' : ''" 
-                   class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group">
+                   class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all">
                 
                 <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                    <button @click="handleEditMaster(m)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-[#4361EE] hover:bg-white"><i class="fas fa-edit text-[10px]"></i></button>
-                    <button @click="handleDeleteMember(m.id)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-red-500 hover:bg-white"><i class="fas fa-trash text-[10px]"></i></button>
+                    <button @click.stop="handleEditMaster(m)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-[#4361EE] hover:bg-white"><i class="fas fa-edit text-[10px]"></i></button>
+                    <button @click.stop="handleDeleteMember(m.id)" class="w-6 h-6 bg-white/90 rounded shadow flex items-center justify-center text-red-500 hover:bg-white"><i class="fas fa-trash text-[10px]"></i></button>
                 </div>
 
                 <div class="h-20 w-full bg-slate-100 relative">

@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{id}/role', [AuthController::class, 'updateRole']);
     Route::put('/users/{id}', [AuthController::class, 'update']);
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
+    Route::get('/users/{id}', [AuthController::class, 'show']);
 
     // --- ANALYTICS ---
     Route::get('/notifications', [ProjectController::class, 'getNotifications']);
@@ -88,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/companies', [ProjectController::class, 'storeCompany']);
     Route::put('/companies/{id}', [ProjectController::class, 'updateCompany']);
     Route::delete('/companies/{id}', [ProjectController::class, 'destroyCompany']);
+    Route::get('/companies/{id}', [ProjectController::class, 'showCompany']);
     
     Route::get('/projects/{id}/companies', [ProjectController::class, 'showProjectCompanies']);
     Route::post('/projects/{id}/sync-companies', [ProjectController::class, 'syncProjectCompanies']);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import api from '../api/axios';
 
 // 1. IMPORT SEMUA COMPONENTS
@@ -16,7 +16,7 @@ import MemberDocument from '../components/project/memberdetail/memberDocument.vu
 import MemberSetup from '../components/project/memberdetail/memberSetup.vue';
 
 const route = useRoute();
-const router = useRouter();
+// const router = useRouter();
 const subTab = ref('overview');
 
 const availableTabs = [

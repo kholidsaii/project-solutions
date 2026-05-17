@@ -3,48 +3,43 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../api/axios';
 
-// 1. IMPORT SEMUA COMPONENTS
-import MemberOverview from '../components/project/memberdetail/memberOverview.vue';
-import MemberProject from '../components/project/memberdetail/memberProject.vue';
-import MemberWorkorder from '../components/project/memberdetail/memberWorkorder.vue';
-import MemberActivity from '../components/project/memberdetail/memberActivity.vue';
-import MemberLocation from '../components/project/memberdetail/memberLocation.vue';
-import MemberTransaksi from '../components/project/memberdetail/memberTransaksi.vue';
-import MemberAccounting from '../components/project/memberdetail/memberAccounting.vue';
-import MemberBanking from '../components/project/memberdetail/memberBanking.vue';
-import MemberDocument from '../components/project/memberdetail/memberDocument.vue';
-import MemberSetup from '../components/project/memberdetail/memberSetup.vue';
+// 1. IMPORT SEMUA COMPONENTS DARI FOLDER ORGDETAIL
+import OrgOverview from '../components/project/orgdetail/orgOverview.vue';
+import OrgProject from '../components/project/orgdetail/orgProject.vue';
+import OrgTransaksi from '../components/project/orgdetail/orgTransaksi.vue';
+import OrgAccounting from '../components/project/orgdetail/orgAccounting.vue';
+import OrgBanking from '../components/project/orgdetail/orgBanking.vue';
+import OrgSetup from '../components/project/orgdetail/orgSetup.vue';
 
 const route = useRoute();
 // const router = useRouter();
+
+// Tab aktif secara default
 const subTab = ref('overview');
 
+// 2. DAFTAR TAB (Menyesuaikan dengan komponen yang ada di orgdetail)
 const availableTabs = [
-  { name: 'Overview', value: 'overview', icon: 'fas fa-id-badge' },
+  { name: 'Overview', value: 'overview', icon: 'fas fa-building' },
   { name: 'Project', value: 'project', icon: 'fas fa-project-diagram' },
-  { name: 'Workorder', value: 'workorder', icon: 'fas fa-clipboard-list' },
-  { name: 'Activity', value: 'activity', icon: 'fas fa-tasks' },
-  { name: 'Location', value: 'location', icon: 'fas fa-map-marker-alt' },
   { name: 'Transaksi', value: 'transaksi', icon: 'fas fa-exchange-alt' },
   { name: 'Accounting', value: 'accounting', icon: 'fas fa-book' },
-  { name: 'Banking', value: 'banking', icon: 'fas fa-university' },
-  { name: 'Document', value: 'document', icon: 'fas fa-folder-open' }
+  { name: 'Banking', value: 'banking', icon: 'fas fa-university' }
 ];
 
-const memberData = ref<any>({});
+const companyData = ref<any>({});
 const isLoading = ref(true);
 
 const fetchDetail = async () => {
   isLoading.value = true;
   try {
-    const res = await api.get(`/users/${route.params.id}`);
+    // Memanggil API khusus company
+    const res = await api.get(`/companies/${route.params.id}`);
     
-    // KUNCI PENYELESAIAN: 
-    // Kita harus menambahkan .data lagi karena Laravel membungkusnya dalam JSON 'data'
-    memberData.value = res.data.data || res.data;
+    // Sama seperti MemberDetail, antisipasi wrapper 'data' dari Laravel
+    companyData.value = res.data.data || res.data;
     
   } catch (e) { 
-    console.error("Gagal mengambil detail member", e); 
+    console.error("Gagal mengambil detail company", e); 
   } finally {
     isLoading.value = false;
   }
@@ -75,35 +70,35 @@ const getImageUrl = (path: string | null): string | undefined => {
 
         <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 min-w-0">
           <div class="flex items-center gap-4 min-w-0 flex-1">
-            <div class="w-12 h-12 shrink-0 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden">
-              <img v-if="memberData?.avatar_url" :src="getImageUrl(memberData.avatar_url)" class="w-full h-full object-cover" />
-              <div v-else class="w-full h-full flex items-center justify-center text-indigo-400 font-black text-lg uppercase bg-indigo-50">
-                 {{ memberData?.name ? memberData.name.substring(0, 2) : 'US' }}
+            <div class="w-12 h-12 shrink-0 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden p-1">
+              <img v-if="companyData?.logo_path" :src="getImageUrl(companyData.logo_path)" class="w-full h-full object-contain" />
+              <div v-else class="w-full h-full flex items-center justify-center text-indigo-400 font-black text-lg uppercase bg-indigo-50 rounded">
+                 <i class="fas fa-building text-slate-300"></i>
               </div>
             </div>
 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest shrink-0">USR-{{ $route.params.id }}</span>
-                <h2 class="text-sm font-black text-slate-800 uppercase leading-none truncate">{{ memberData?.name || 'Loading...' }}</h2>
+                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest shrink-0">ORG-{{ $route.params.id }}</span>
+                <h2 class="text-sm font-black text-slate-800 uppercase leading-none truncate">{{ companyData?.name || 'Loading...' }}</h2>
               </div>
               
               <p class="text-[10px] font-bold text-slate-500 uppercase mt-1 truncate">
-                <span class="text-indigo-600 font-black">{{ memberData?.position || 'Staff' }}</span> 
+                <span class="text-indigo-600 font-black">Corporate Partner</span> 
                 <span class="text-slate-300 mx-1">|</span> 
-                <span><i class="fas fa-envelope text-slate-400 mr-1"></i> {{ memberData?.email || '-' }}</span>
+                <span><i class="fas fa-envelope text-slate-400 mr-1"></i> {{ companyData?.email || '-' }}</span>
                 <span class="text-slate-300 mx-1">|</span> 
-                <span><i class="fas fa-phone-alt text-slate-400 mr-1"></i> {{ memberData?.phone || '-' }}</span>
+                <span><i class="fas fa-phone-alt text-slate-400 mr-1"></i> {{ companyData?.phone || '-' }}</span>
               </p>
             </div>
           </div>
           
           <div class="flex items-center gap-3 shrink-0">
              <div class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 font-black text-xs flex items-center gap-2 capitalize">
-               <i class="fas fa-circle text-[8px]"></i> {{ memberData?.status || 'Active' }}
+               <i class="fas fa-check-circle text-[10px]"></i> Active
              </div>
              
-             <button @click="subTab = 'setup'" title="Member Setup"
+             <button @click="subTab = 'setup'" title="Organization Setup"
                class="w-9 h-9 flex items-center justify-center rounded-lg border transition-all"
                :class="subTab === 'setup' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 border-slate-200'">
                <i class="fas fa-cog"></i>
@@ -135,8 +130,8 @@ const getImageUrl = (path: string | null): string | undefined => {
         <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 min-w-0">
           <div class="flex items-center gap-3 text-indigo-900 min-w-0">
             <template v-if="subTab === 'setup'">
-               <i class="fas fa-user-cog text-lg shrink-0"></i>
-               <h3 class="text-xs font-black uppercase tracking-widest truncate">Profile Setup & Settings</h3>
+               <i class="fas fa-cogs text-lg shrink-0"></i>
+               <h3 class="text-xs font-black uppercase tracking-widest truncate">Organization Settings</h3>
             </template>
             <template v-else>
                <i :class="availableTabs.find(t => t.value === subTab)?.icon" class="text-lg shrink-0"></i>
@@ -146,16 +141,12 @@ const getImageUrl = (path: string | null): string | undefined => {
         </div>
 
         <div class="p-4 sm:p-6 lg:p-8 w-full min-w-0 overflow-x-auto">
-          <MemberOverview v-if="subTab === 'overview'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberProject v-if="subTab === 'project'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberWorkorder v-if="subTab === 'workorder'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberActivity v-if="subTab === 'activity'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberLocation v-if="subTab === 'location'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberTransaksi v-if="subTab === 'transaksi'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberAccounting v-if="subTab === 'accounting'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberBanking v-if="subTab === 'banking'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberDocument v-if="subTab === 'document'" :memberData="memberData" @refresh="fetchDetail" />
-          <MemberSetup v-if="subTab === 'setup'" :memberData="memberData" @refresh="fetchDetail" />
+          <OrgOverview v-if="subTab === 'overview'" :companyData="companyData" @refresh="fetchDetail" />
+          <OrgProject v-if="subTab === 'project'" :companyData="companyData" @refresh="fetchDetail" />
+          <OrgTransaksi v-if="subTab === 'transaksi'" :companyData="companyData" @refresh="fetchDetail" />
+          <OrgAccounting v-if="subTab === 'accounting'" :companyData="companyData" @refresh="fetchDetail" />
+          <OrgBanking v-if="subTab === 'banking'" :companyData="companyData" @refresh="fetchDetail" />
+          <OrgSetup v-if="subTab === 'setup'" :companyData="companyData" @refresh="fetchDetail" />
         </div>
       </div>
 

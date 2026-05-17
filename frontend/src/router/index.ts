@@ -22,7 +22,7 @@ const routes = [
   
   // [BARU] Route untuk halaman detail Member dan Company
   { path: '/memberdetail/:id', name: 'MemberDetail', component: () => import('../views/MemberDetail.vue'), meta: { requiresAuth: true } },
-  // { path: '/companydetail/:id', name: 'CompanyDetail', component: () => import('../views/CompanyDetail.vue'), meta: { requiresAuth: true } },
+  { path: '/companydetail/:id', name: 'CompanyDetail', component: () => import('../views/CompanyDetail.vue'), meta: { requiresAuth: true } },
 
   { path: '/accounting', name: 'Accounting', component: () => import('../views/Accounting.vue'), meta: { requiresAuth: true } },
   { path: '/documents', name: 'Documents', component: () => import('../views/Documents.vue'), meta: { requiresAuth: true } },
